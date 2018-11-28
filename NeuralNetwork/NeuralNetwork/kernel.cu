@@ -1,8 +1,21 @@
 #include "kernel.h"
 
-__global__ void addKernel(int *c, const int *a, const int *b)
+__global__ void simpleDotProduct(float* input, float* input2, float* output, uint length)
 {
-	printf("HAHAHA");
+	float sum1 = 0.0f, sum2 = 0.0f;
+	int index = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (index < length) {
+		sum1 = input[index];
+		sum2 = input2[index];
+	}
+
+	float sum = sum1 * sum2;
+
+	// reduction
+
+	// NAIVE WAY
+	if(index < length) atomicAdd(output, sum);
 }
 
 //#include <stdio.h>
