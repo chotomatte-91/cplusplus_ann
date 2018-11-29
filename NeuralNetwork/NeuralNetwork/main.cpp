@@ -1,7 +1,16 @@
 #include "kernel.h"
 
+void ann_cpu_test()
+{
+
+}
+
+
 int main(int argc, char **argv)
 {
+  ann_cpu_test();
+#if 0
+  ann_cpu_test();
 	if (argc != 2) printf("Usage: [image file]");
 
 	StopWatchInterface *hTimer = NULL;
@@ -85,4 +94,5 @@ int main(int argc, char **argv)
 	checkCudaErrors(cudaFree(d_output));
 	delete[] h_arr1;
 	delete[] h_arr2;
+#endif
 }
