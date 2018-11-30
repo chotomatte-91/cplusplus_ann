@@ -9,13 +9,41 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 		sum1 = input[index];
 		sum2 = input2[index];
 	}
-
-	float sum = sum1 * sum2;
-
+	
 	// reduction
 
 	// NAIVE WAY
-	if(index < length) atomicAdd(output, sum);
+	if (index < length)
+	{
+		float sum = sum1 * sum2;
+		atomicAdd(output, sum);
+	}
+}
+
+/*
+	vectorIndex uses thread index x and is use to access vector
+	mtxIndex make use of vectorIndex to compute it 2-dimensional position to access the matrix
+*/
+__global__ void dotProduct(float* __restrict__ vector, float* __restrict__ matrix, float* output, uint length)
+{
+	__shared__ float vectorShared[BLOCKSIZE];
+	int vecIndex = threadIdx.x + blockDim.x * blockIdx.x;
+	int row      = threadIdx.y + blockDim.y * blockIdx.y;
+	int mtxIndex = vecIndex + row * length;
+
+	if (vecIndex < length && threadIdx.y == 0)
+		vectorShared[threadIdx.x] = vector[vecIndex];
+	__syncthreads();
+
+	// naive way
+	if (vecIndex < length && row < length)
+	{
+		float partialResult = vectorShared[threadIdx.x] * matrix[mtxIndex];
+
+		atomicAdd(output + row, partialResult);
+	}
+
+
 }
 
 //#include <stdio.h>

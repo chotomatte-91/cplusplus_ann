@@ -40,7 +40,7 @@ public:
   NeuralNet(const std::vector<unsigned>& config);
   Neuron& getNeuron(unsigned layerNum, unsigned index);
   std::vector<float> predict(const std::vector<float>& inputs, const std::vector<float>& labels);
-  
+
 
 private:
   void forward(const std::vector<float>& inputvalues);
@@ -49,6 +49,5 @@ private:
 
   std::vector<Layer> m_layers;
 };
-
 
 #endif

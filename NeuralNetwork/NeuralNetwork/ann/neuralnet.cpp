@@ -2,6 +2,7 @@
 #include <cassert>
 #include "../utils/rng.h"
 
+//random number generator
 static RNG rng;
 
 //random number generator
