@@ -1,8 +1,24 @@
 #include "kernel.h"
+#include "ann/neuralnet.h"
+#include <cmath>
+
+float mytanH(float val)
+{
+  return std::tanh(val);
+}
+
+float mytanHPrime(float val)
+{
+  return 1.f - (val * val);
+}
 
 void ann_cpu_test()
 {
+  std::vector<unsigned> config{2, 2, 1};
+  NeuralNet nn(config);
 
+  Neuron& neuron = nn.getNeuron(1, 1);
+  float y = neuron.getOutput();
 }
 
 

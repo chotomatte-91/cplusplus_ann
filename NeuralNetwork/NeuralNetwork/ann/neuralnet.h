@@ -4,6 +4,7 @@
 
 #include <vector>
 
+class Neuron;
 struct Synapse
 {
   float weight;
@@ -11,37 +12,43 @@ struct Synapse
   unsigned to;
 };
 
+using ActivationFunc = float(*)(float);
+using Layer = std::vector<Neuron>;
+
 class Neuron
 {
 public:
-  Neuron(unsigned numOutputs, const float& val);
+  Neuron(unsigned numOutputs, unsigned index);
+  void updateWeights(const Layer& previousLayer);
+  void setOutput(float val);
+  void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
+  float getOutput() const;
+
 private:
-  float m_value;
+  ActivationFunc m_func = nullptr;
+  ActivationFunc m_derivative = nullptr;
+  float m_output;
+  unsigned m_index;
   std::vector<Synapse> m_edges;
 };
 
-class Layer
-{
-public:
-  void AddNeuron(unsigned numOutputs, float value=0.f);
 
-private:
-  std::vector<Neuron> m_neurons;
-};
 
 class NeuralNet
 {
 public:
   NeuralNet(const std::vector<unsigned>& config);
-  void forward(const std::vector<float>& inputvalues);
-  void back(const std::vector<float>& labels);
-  std::vector<float> predict() const;
-
+  Neuron& getNeuron(unsigned layerNum, unsigned index);
+  std::vector<float> predict(const std::vector<float>& inputs, const std::vector<float>& labels);
+  
 
 private:
-  std::vector<Layer> m_layers;
+  void forward(const std::vector<float>& inputvalues);
+  void back(const std::vector<float>& labels);
+  std::vector<float> output() const;
 
-}
+  std::vector<Layer> m_layers;
+};
 
 
 #endif
