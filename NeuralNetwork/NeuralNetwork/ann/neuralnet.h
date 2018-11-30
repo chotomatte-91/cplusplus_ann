@@ -41,7 +41,6 @@ public:
 private:
   std::vector<Layer> m_layers;
 
-}
-
+};
 
 #endif

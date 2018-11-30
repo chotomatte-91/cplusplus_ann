@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{AA73E3BD-6A03-4984-9154-A708EAA83D93}</ProjectGuid>
     <RootNamespace>NeuralNetwork</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
     <CudaToolkitCustomDir>
     </CudaToolkitCustomDir>
   </PropertyGroup>
@@ -89,12 +89,15 @@
   <ItemGroup>
     <ClCompile Include="bmp.cpp" />
     <ClCompile Include="ann\neuralnet.cpp" />
+    <ClCompile Include="utils\MathUtils.cpp" />
+    <ClCompile Include="utils\MathUtilscpp.cpp" />
     <CudaCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bmp.h" />
     <ClInclude Include="ann\neuralnet.h" />
     <ClInclude Include="kernel.h" />
+    <ClInclude Include="utils\MathUtils.h" />
     <ClInclude Include="utils\rng.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

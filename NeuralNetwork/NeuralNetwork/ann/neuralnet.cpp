@@ -2,7 +2,7 @@
 #include "../utils/rng.h"
 
 //random number generator
-static RNG rng = RNG();
+static RNG rng;
 
 Neuron::Neuron(unsigned numOutputs, const float& val) :
   m_value(val)
@@ -39,9 +39,9 @@ NeuralNet::NeuralNet(const std::vector<unsigned>& config)
     m_layers.push_back(Layer());
 
     //extra layer for bias neuron
-    for (size_t n = 0; n <= config[l]; ++n)
-    {
-      m_layers.back().AddNeuron();
-    }
+    //for (size_t n = 0; n <= config[l]; ++n)
+    //{
+    //  m_layers.back().AddNeuron();
+    //}
   }
 }

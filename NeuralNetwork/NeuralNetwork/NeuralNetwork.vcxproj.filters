@@ -7,11 +7,14 @@
   <ItemGroup>
     <ClCompile Include="bmp.cpp" />
     <ClCompile Include="ann\neuralnet.cpp" />
+    <ClCompile Include="utils\MathUtilscpp.cpp" />
+    <ClCompile Include="utils\MathUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kernel.h" />
     <ClInclude Include="bmp.h" />
     <ClInclude Include="ann\neuralnet.h" />
     <ClInclude Include="utils\rng.h" />
+    <ClInclude Include="utils\MathUtils.h" />
   </ItemGroup>
 </Project>
