@@ -139,7 +139,7 @@ float NeuralNet::rmse(const std::vector<float>& expectedValues) const
     float d  = expectedValues[i] - outputLayer[i].getOutput();
     error += (d * d);
   }
-  return std::sqrtf(error / float(expectedValues.size()));
+  return std::sqrtf(error / static_cast<float>(expectedValues.size()));
 }
 
 void NeuralNet::back(const std::vector<float>& labels)
