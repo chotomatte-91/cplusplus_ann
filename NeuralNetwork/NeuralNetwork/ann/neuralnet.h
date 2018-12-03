@@ -14,6 +14,8 @@ struct Synapse
 using ActivationFunc = float(*)(float);
 using Layer = std::vector<Neuron>;
 
+//currently this network does not allow user to specify input-output configuration,
+//assumes output layer has only one neuron 
 class Neuron
 {
 public:
@@ -23,6 +25,7 @@ public:
   void computeHiddenGradients(const Layer& nextLayer);
   void updateWeights(Layer& previousLayer);
   
+  void setWeight(unsigned to_index, float weight);
   void setOutput(float val);
   void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
   float getOutput() const;
@@ -37,19 +40,19 @@ private:
 };
 
 
-
+using Matrix = std::vector<std::vector<float>>;
 class NeuralNet
 {
 public:
   NeuralNet(const std::vector<unsigned>& config);
-  Neuron& getNeuron(unsigned layerNum, unsigned index);
-  std::vector<float> predict(const std::vector<float>& inputs, const std::vector<float>& labels, unsigned numIter);
+  Neuron& getNeuron(unsigned layerIndex, unsigned index);
+  void train(const Matrix& inputs, const std::vector<float>& labels, unsigned numIter);
+  float predict(const std::vector<float>& input);
+  size_t numLayers() const;
 
 private:
-  void forward(const std::vector<float>& inputvalues);
-  void back(const std::vector<float>& labels);
-  float rmse(const std::vector<float>& expectedValues) const;
-  std::vector<float> output() const;
+  float forward(const std::vector<float>& inputvalues);
+  float back(const std::vector<float>& predicted, const std::vector<float>& labels);
 
   std::vector<Layer> m_layers;
 };

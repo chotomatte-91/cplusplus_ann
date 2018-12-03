@@ -15,8 +15,55 @@ float mytanHPrime(float val)
 
 void ann_cpu_test()
 {
+  //two neurons input, two neurons hidden, one neuron output
   std::vector<unsigned> config{2, 2, 1};
   NeuralNet nn(config);
+
+  //hardcoded XOR input and labels
+  /*XOR TABLE
+  0 0 0
+  0 1 1
+  1 0 1
+  1 1 0
+  */
+
+  std::vector<std::vector<float>> inputs = {
+    {0, 0},
+    {0, 1},
+    {1, 0},
+    {1, 1}
+  };
+  std::vector<float> labels = { 0, 1, 1, 0 };
+
+  //hardcoded initialization of weights for testing (last value is bias)
+  float i1_h1 = -0.7706f;
+  float i2_h1 = 0.6257f;
+  float h1_bias = 0.1859f;
+  float i1_h2 = 0.5607f;
+  float i2_h2 = 0.2109f;
+  float h2_bias = -0.7984f;
+  float h1_o1 = 0.5951f;
+  float h2_o1 = 0.3433f;
+  float o1_bias = 0.1328f;
+
+
+  std::vector<float> neuron_one_weights = { i1_h1, i2_h1, h1_bias };
+  std::vector<float> neuron_two_weights = { i1_h2, i2_h2, h2_bias };
+  std::vector<float> output_weights = { h1_o1, h2_o1, o1_bias }; 
+
+  /*
+  //set weights
+  for (size_t i = 0; i < 3; ++i)
+  {
+    //input to hidden layer
+    nn.getNeuron(0, 1).setWeight();
+    nn.getNeuron(0, 2).setWeight();
+
+    //hidden to output layer
+    nn.getNeuron(1, 1).setWeight();
+    nn.getNeuron(1, 2).setWeight();
+  }
+  */
 
   Neuron& neuron = nn.getNeuron(1, 1);
   float y = neuron.getOutput();

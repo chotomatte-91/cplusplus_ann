@@ -1,11 +1,26 @@
 #include "neuralnet.h"
 #include <cassert>
+#include <iostream>
 #include "../utils/rng.h"
 
 //random number generator
 static RNG rng;
 
-//random number generator
+//error function
+float rmse(const std::vector<float>& predicted, const std::vector<float>& expected)
+{
+  assert(predicted.size() == expected.size());
+  size_t N = expected.size();
+
+  float error = 0.f;
+  for (size_t i = 0; i < N; ++i)
+  {
+    float d = expected[i] - predicted[i];
+    error += (d * d);
+  }
+  return std::sqrtf(error / static_cast<float>(N));
+}
+
 Neuron::Neuron(unsigned numOutputs, unsigned index) :
   m_output(0.f),
   m_index(index)
@@ -21,6 +36,11 @@ Neuron::Neuron(unsigned numOutputs, unsigned index) :
 void Neuron::setOutput(float val)
 {
   m_output = val;
+}
+
+void Neuron::setWeight(unsigned to_index, float weight)
+{
+  m_edges[to_index].weight = weight;
 }
 
 void Neuron::setActivationFunctions(ActivationFunc f, ActivationFunc d)
@@ -80,10 +100,10 @@ void Neuron::updateWeights(Layer& prevLayer)
   }
 }
 
-Neuron& NeuralNet::getNeuron(unsigned layerNum, unsigned index)
+Neuron& NeuralNet::getNeuron(unsigned layerIndex, unsigned index)
 {
   assert(m_layers.size() != 0);
-  return m_layers[layerNum][index];
+  return m_layers[layerIndex][index];
 }
 
 NeuralNet::NeuralNet(const std::vector<unsigned>& config)
@@ -93,7 +113,7 @@ NeuralNet::NeuralNet(const std::vector<unsigned>& config)
   for (size_t l = 0; l < layerCount; ++l)
   {
     //output layer have no outputs
-    unsigned numOuts = l == layerCount-1 ? 0 : config[l+1];
+    unsigned numOuts = (l == layerCount-1) ? 0 : config[l+1];
 
     m_layers.push_back(Layer());
 
@@ -106,7 +126,7 @@ NeuralNet::NeuralNet(const std::vector<unsigned>& config)
   }
 }
 
-void NeuralNet::forward(const std::vector<float>& inputs)
+float NeuralNet::forward(const std::vector<float>& inputs)
 {
   assert(inputs.size() == m_layers[0].size()-1);
 
@@ -125,27 +145,17 @@ void NeuralNet::forward(const std::vector<float>& inputs)
     for (size_t n = 0; n < currentLayer.size()-1; ++n)
       currentLayer[n].calculateOutput(previousLayer);
   }
+
+  //get output (assume only one neuron in output layer) (extra bias neuron ignored)
+  assert(m_layers.back().size() == 2);
+  return m_layers.back()[0].getOutput();
 }
 
-float NeuralNet::rmse(const std::vector<float>& expectedValues) const
-{
-  const Layer& outputLayer = m_layers.back();
-  float error = 0.f;
 
-  assert(expectedValues.size() == outputLayer.size()-1);
-  
-  for (size_t i = 0; i < expectedValues.size(); ++i)
-  {
-    float d  = expectedValues[i] - outputLayer[i].getOutput();
-    error += (d * d);
-  }
-  return std::sqrtf(error / static_cast<float>(expectedValues.size()));
-}
-
-void NeuralNet::back(const std::vector<float>& labels)
+float NeuralNet::back(const std::vector<float>& predicted, const std::vector<float>& labels)
 {
   //calculate rmse
-  float err = rmse(labels);
+  float err = rmse(predicted, labels);
 
   //calculate gradient at output layer
   Layer& outputLayer = m_layers.back();
@@ -172,28 +182,40 @@ void NeuralNet::back(const std::vector<float>& labels)
     for(size_t n = 0; n < currentLayer.size()-1; ++n)
       currentLayer[n].updateWeights(prevLayer);
   }
-
+  
+  return err;
 }
 
-std::vector<float> NeuralNet::output() const
+void NeuralNet::train(const Matrix& inputs, const std::vector<float>& labels, unsigned numIterations)
 {
-  //copy values from output layer and return
-  const Layer& outputLayer = m_layers.back();
-  std::vector<float> result;
-  result.reserve(outputLayer.size()-1);
+  //number of rows = number of inputs
+  size_t numInputs = inputs.size();
 
-  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
-    result.push_back(outputLayer[i].getOutput());
+  //every input should have a label
+  assert(numInputs == labels.size());
 
-  return result;
-}
-
-std::vector<float> NeuralNet::predict(const std::vector<float>& inputs, const std::vector<float>& labels, unsigned numIterations)
-{
   for (unsigned i = 0; i < numIterations; ++i)
   {
-    forward(inputs);
-    back(labels);
+    std::vector<float> outputs(0.f, labels.size());
+
+    //feed forward
+    for (size_t j = 0; j < numInputs; ++j)
+      outputs[j] = forward(inputs[j]);
+
+    //back propagate
+    float error = back(outputs, labels);
+
+    //output error
+    std::cout << "Error in " << i+1 << " iteration: " << error << std::endl; 
   }
-  return output();
+}
+
+float NeuralNet::predict(const std::vector<float>& input)
+{
+  return forward(input);
+}
+
+size_t NeuralNet::numLayers() const
+{
+  return m_layers.size();
 }
