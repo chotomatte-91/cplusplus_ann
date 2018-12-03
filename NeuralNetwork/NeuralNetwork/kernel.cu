@@ -1,5 +1,21 @@
 #include "kernel.h"
 
+__global__ float kernel_sigmoid(float x)
+{
+	// fast sigmoid function
+	return x / (1 + abs(x));
+}
+
+__device__ float kernel_tanh(float x)
+{
+	return tanhf(x);
+}
+
+__device__ float kernel_Relu(float x)
+{
+	return x > 0 ? x : 0;
+}
+
 __global__ void simpleDotProduct(float* input, float* input2, float* output, uint length)
 {
 	float sum1 = 0.0f, sum2 = 0.0f;
@@ -9,8 +25,6 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 		sum1 = input[index];
 		sum2 = input2[index];
 	}
-	
-	// reduction
 
 	// NAIVE WAY
 	if (index < length)
@@ -24,27 +38,93 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 	vectorIndex uses thread index x and is use to access vector
 	mtxIndex make use of vectorIndex to compute it 2-dimensional position to access the matrix
 */
-__global__ void dotProduct(float* __restrict__ vector, float* __restrict__ matrix, float* output, uint length)
+__global__ void dotProduct(float* vector, float* __restrict__ matrix, float* output, uint vectorLength, uint matrixlength)
 {
-	__shared__ float vectorShared[BLOCKSIZE];
+	float __shared__ vectorShared[BLOCKSIZE];
+	float __shared__ partialResult[BLOCKSIZE][BLOCKSIZE];
 	int vecIndex = threadIdx.x + blockDim.x * blockIdx.x;
-	int row      = threadIdx.y + blockDim.y * blockIdx.y;
-	int mtxIndex = vecIndex + row * length;
+	int row = threadIdx.y + blockDim.y * blockIdx.y;
+	int mtxIndex = vecIndex + row * vectorLength;
 
-	if (vecIndex < length && threadIdx.y == 0)
+	// load 2 element at once
+	if (vecIndex < vectorLength && threadIdx.y == 0)
 		vectorShared[threadIdx.x] = vector[vecIndex];
 	__syncthreads();
 
-	// naive way
-	if (vecIndex < length && row < length)
+	// parallel reduction scan
+	if (vecIndex < vectorLength && row < matrixlength)
 	{
-		float partialResult = vectorShared[threadIdx.x] * matrix[mtxIndex];
+		partialResult[threadIdx.y][threadIdx.x] = vectorShared[threadIdx.x] * matrix[mtxIndex];
+		__syncthreads();
 
-		atomicAdd(output + row, partialResult);
+		// Complete unrolling
+		int BlockDim = blockDim.x >> 1;
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 2;
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 3;
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 4;
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 5;
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		//for (unsigned i = blockDim.x >> 1; i > 0; i >>= 1) {
+		//	__syncthreads();
+		//	if (threadIdx.x < i && (vecIndex + i) < length)
+		//		partialResult[threadIdx.y][threadIdx.x] += partialResult[threadIdx.y][threadIdx.x + i];
+		//}
+
+		if (threadIdx.x == 0)
+			atomicAdd(output + row, partialResult[threadIdx.y][threadIdx.x]);
 	}
 
-
 }
+
+__global__ void feedForward(float* inputMatrix, float* __restrict__ weightMatrix,
+	float* intermediateOutput, uint layerIndex, uint length)
+{
+	//__shared__ float inputShared[BLOCKSIZE];
+	//__shared__ float partialResShared[BLOCKSIZE][BLOCKSIZE];
+	//int vecIndex = threadIdx.x + blockDim.x * blockIdx.x;
+	//int row      = threadIdx.y + blockDim.y * blockIdx.y;
+	//int mtxIndex = vecIndex + row * length;
+
+	//if (vecIndex < length && threadIdx.y == 0)
+	//	inputShared[threadIdx.x] = inputMatrix[vecIndex + layerIndex * length];
+	//__syncthreads();
+
+
+	//// Parallel scan reduction
+	//if (vecIndex < length && row < length)
+	//{
+	//	// step 1: do multiplication
+	//	partialResShared[threadIdx.y][threadIdx.x] = inputShared[threadIdx.x] * weightMatrix[mtxIndex];
+	//	
+	//	// step2: parallel reduction to complete dot product
+	//	for (unsigned i = 1; i <= BLOCKSIZE; i<<=1) {
+	//		int index = (threadIdx.x + 1) * (i << 1) - 1;
+	//		if (index < BLOCKSIZE)
+	//			partialResShared[threadIdx.y][index] += partialResShared[threadIdx.y][index - i];
+	//		__syncthreads();
+	//	}
+	//}
+}
+
 
 //#include <stdio.h>
 //

@@ -10,6 +10,12 @@
 using uint = unsigned int;
 
 #define BLOCKSIZE 32
+#define HALFBLOCK 16
+
+__device__ float kernel_sigmoid(float x);
+__device__ float kernel_tanh(float x);
+__device__ float kernel_Relu(float x);
+
 
 __global__ void simpleDotProduct(float* input, float* input2, float* output, uint length);
 
@@ -20,4 +26,9 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 	float* output - array of float (1D) of size N
 	uint length   - size N
 */
-__global__ void dotProduct(float* __restrict__ vector, float* __restrict__ matrix, float* output, uint length);
+__global__ void dotProduct(float* inputMatrix, float* __restrict__ weightMatrix, float* output, uint vectorLength, uint matrixLength);
+
+
+
+__global__ void feedForward(float* inputMatrix, float* __restrict__ weightMatrix,
+						    float* intermediateOutput, uint layerIndex, uint length);
