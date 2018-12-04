@@ -148,7 +148,12 @@ float NeuralNet::forward(const std::vector<float>& inputs)
 
   //get output (assume only one neuron in output layer) (extra bias neuron ignored)
   assert(m_layers.back().size() == 2);
-  return m_layers.back()[0].getOutput();
+
+  float result = m_layers.back()[0].getOutput();
+
+  std::cout << result << std::endl;
+
+  return result;
 }
 
 
@@ -196,7 +201,7 @@ void NeuralNet::train(const Matrix& inputs, const std::vector<float>& labels, un
 
   for (unsigned i = 0; i < numIterations; ++i)
   {
-    std::vector<float> outputs(0.f, labels.size());
+    std::vector<float> outputs(labels.size(), 0.f);
 
     //feed forward
     for (size_t j = 0; j < numInputs; ++j)

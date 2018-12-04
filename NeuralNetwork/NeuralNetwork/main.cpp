@@ -3,6 +3,18 @@
 #include "ann/neuralnet.h"
 #include <cmath>
 
+float mysigmoid(float val)
+{
+  float denom = 1.f + std::exp(-val);
+  return 1.f/denom;
+}
+
+float mysigmoidPrime(float val)
+{
+  float temp = mysigmoid(val);
+  return temp * (1.f - temp);
+}
+
 float mytanH(float val)
 {
 	return std::tanh(val);
@@ -28,7 +40,7 @@ void ann_cpu_test()
 	*/
 
 	std::vector<std::vector<float>> inputs = {
-		{ 0, 0 },
+	{ 0, 0 },
 	{ 0, 1 },
 	{ 1, 0 },
 	{ 1, 1 }
@@ -63,15 +75,20 @@ void ann_cpu_test()
 	nn.getNeuron(1, 1).setWeight(0, h2_o1);
   nn.getNeuron(1, 2).setWeight(0, o1_bias);
 
-	Neuron& neuron = nn.getNeuron(1, 1);
-	float y = neuron.getOutput();
-	neuron.setActivationFunctions(mytanH, mytanHPrime);
+  //tanh is activation function for hidden layer
+  nn.getNeuron(1, 0).setActivationFunctions(mytanH, mytanHPrime);
+  nn.getNeuron(1, 1).setActivationFunctions(mytanH, mytanHPrime);
+
+  //sigmoid is activation function for output layer
+  nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
+
+  nn.train(inputs, labels, 1);
 }
 
 int main(int argc, char **argv)
 {
 	ann_cpu_test();
-#if 1
+#if 0
 	//if (argc != 2) {
 	//	printf("Usage: [image file]");
 	//	return -1;

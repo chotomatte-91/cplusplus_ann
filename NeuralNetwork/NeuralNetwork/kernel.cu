@@ -1,5 +1,6 @@
 #include "kernel.h"
 
+#if 0
 __global__ float kernel_sigmoid(float x)
 {
 	// fast sigmoid function
@@ -15,6 +16,7 @@ __device__ float kernel_Relu(float x)
 {
 	return x > 0 ? x : 0;
 }
+#endif
 
 __global__ void simpleDotProduct(float* input, float* input2, float* output, uint length)
 {
