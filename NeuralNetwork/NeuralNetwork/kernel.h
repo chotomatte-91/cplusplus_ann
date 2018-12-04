@@ -6,12 +6,18 @@
 #include <stdio.h>
 #include <helper_cuda.h>
 #include <helper_functions.h>
+#include "ann/neuralnet.h"
 
 using uint = unsigned int;
 
 #define BLOCKSIZE 32
 #define HALFBLOCK 16
 
+#define BLOCKSIZEX 16
+#define BLOCKSIZEY 16
+#define BLOCKSIZEZ 4
+
+__device__ float kernel_identity(float x);
 __device__ float kernel_sigmoid(float x);
 __device__ float kernel_tanh(float x);
 __device__ float kernel_Relu(float x);
@@ -26,9 +32,9 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 	float* output - array of float (1D) of size N
 	uint length   - size N
 */
-__global__ void dotProduct(float* inputMatrix, float* __restrict__ weightMatrix, float* output, uint vectorLength, uint matrixLength);
+__global__ void dotProduct(float* inputMatrix, float* __restrict__ weightMatrix, float* output, uint length);
 
 
 
-__global__ void feedForward(float* inputMatrix, float* __restrict__ weightMatrix,
-						    float* intermediateOutput, uint layerIndex, uint length);
+__global__ void feedForward(float* __restrict__ inputMatrix, float* __restrict__ weightMatrix,
+							float* output, uint inputLength, uint inputHeight, uint matrixHeight, uint fnc);

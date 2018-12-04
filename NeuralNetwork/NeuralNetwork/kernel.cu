@@ -1,7 +1,11 @@
 #include "kernel.h"
 
-#if 0
-__global__ float kernel_sigmoid(float x)
+__device__ float kernel_identity(float x)
+{
+	return x;
+}
+
+__device__ float kernel_sigmoid(float x)
 {
 	// fast sigmoid function
 	return x / (1 + abs(x));
@@ -16,7 +20,16 @@ __device__ float kernel_Relu(float x)
 {
 	return x > 0 ? x : 0;
 }
-#endif
+
+
+__device__ float(*acvt[4])(float) 
+{
+	kernel_identity,
+	kernel_sigmoid,
+	kernel_tanh,
+	kernel_Relu
+};
+
 
 __global__ void simpleDotProduct(float* input, float* input2, float* output, uint length)
 {
@@ -37,51 +50,52 @@ __global__ void simpleDotProduct(float* input, float* input2, float* output, uin
 }
 
 /*
+									SAMPLE / TEST CODE
 	vectorIndex uses thread index x and is use to access vector
 	mtxIndex make use of vectorIndex to compute it 2-dimensional position to access the matrix
 */
-__global__ void dotProduct(float* vector, float* __restrict__ matrix, float* output, uint vectorLength, uint matrixlength)
+__global__ void dotProduct(float* vector, float* __restrict__ matrix, float* output, uint length)
 {
 	float __shared__ vectorShared[BLOCKSIZE];
 	float __shared__ partialResult[BLOCKSIZE][BLOCKSIZE];
 	int vecIndex = threadIdx.x + blockDim.x * blockIdx.x;
 	int row = threadIdx.y + blockDim.y * blockIdx.y;
-	int mtxIndex = vecIndex + row * vectorLength;
+	int mtxIndex = vecIndex + row * length;
 
-	// load 2 element at once
-	if (vecIndex < vectorLength && threadIdx.y == 0)
+	// load input element into shared memory
+	if (vecIndex < length && threadIdx.y == 0)
 		vectorShared[threadIdx.x] = vector[vecIndex];
 	__syncthreads();
 
 	// parallel reduction scan
-	if (vecIndex < vectorLength && row < matrixlength)
+	if (vecIndex < length && row < length)
 	{
 		partialResult[threadIdx.y][threadIdx.x] = vectorShared[threadIdx.x] * matrix[mtxIndex];
 		__syncthreads();
 
 		// Complete unrolling
 		int BlockDim = blockDim.x >> 1;
-		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < length) ?
 			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
 		__syncthreads();
 
 		BlockDim = blockDim.x >> 2;
-		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < length) ?
 			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
 		__syncthreads();
 
 		BlockDim = blockDim.x >> 3;
-		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < length) ?
 			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
 		__syncthreads();
 
 		BlockDim = blockDim.x >> 4;
-		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < length) ?
 			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
 		__syncthreads();
 
 		BlockDim = blockDim.x >> 5;
-		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < vectorLength) ?
+		partialResult[threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < length) ?
 			partialResult[threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
 		__syncthreads();
 
@@ -97,34 +111,78 @@ __global__ void dotProduct(float* vector, float* __restrict__ matrix, float* out
 
 }
 
-__global__ void feedForward(float* inputMatrix, float* __restrict__ weightMatrix,
-	float* intermediateOutput, uint layerIndex, uint length)
+/*
+	Recommended block size:
+	(16 * 16 * 4) more balance approached (maybe)
+	(8 * 8 * 16) dataset size is larger
+	(4 * 4 * 64) dataset size is large and no. of neuron small
+
+	x and y controls how many neurons in input & hidden
+	layer. Z controls how many different set of inputs(*fnc)
+
+	NOTE: Block size shoud not be more than 10x10x10 cuz it will exceed total limit of cuda cores in GTX 1060 GPU
+*/
+__global__ void feedForward(float* __restrict__ inputMatrix, float* __restrict__ weightMatrix, float* output,
+							uint inputLength, uint inputHeight, uint matrixHeight, uint acvtFnc) /* NOTE: matrixLength = inputlength */
 {
-	//__shared__ float inputShared[BLOCKSIZE];
-	//__shared__ float partialResShared[BLOCKSIZE][BLOCKSIZE];
-	//int vecIndex = threadIdx.x + blockDim.x * blockIdx.x;
-	//int row      = threadIdx.y + blockDim.y * blockIdx.y;
-	//int mtxIndex = vecIndex + row * length;
+	/*
+		Variable setup
+	*/
+	float __shared__ inputShared[BLOCKSIZEZ][BLOCKSIZEX];
+	float __shared__ partialResult[BLOCKSIZEZ][BLOCKSIZEY][BLOCKSIZEX];
+	int vecIndex   = threadIdx.x + blockDim.x * blockIdx.x;
+	int yRow       = threadIdx.y + blockDim.y * blockIdx.y;
+	int zRow       = threadIdx.z + blockDim.z * blockIdx.z;
+	int inputIndex = vecIndex + zRow * inputLength;
+	int mtxIndex   = vecIndex + yRow * inputLength;
 
-	//if (vecIndex < length && threadIdx.y == 0)
-	//	inputShared[threadIdx.x] = inputMatrix[vecIndex + layerIndex * length];
-	//__syncthreads();
+	/* 
+		load input elements into shared memory
+		inputShared is a a 3d shared memory that
+		contains different sets of input, each set
+		of input is stored in different z index
+		each input element is applied with an activation
+		function from the previous layer (deferred activation)
+	*/
+	if (vecIndex < inputLength && zRow < inputHeight && threadIdx.y == 0) {
+		inputShared[threadIdx.z][threadIdx.x] = acvt[acvtFnc](inputMatrix[inputIndex]);
+	}
+	__syncthreads();
 
 
-	//// Parallel scan reduction
-	//if (vecIndex < length && row < length)
-	//{
-	//	// step 1: do multiplication
-	//	partialResShared[threadIdx.y][threadIdx.x] = inputShared[threadIdx.x] * weightMatrix[mtxIndex];
-	//	
-	//	// step2: parallel reduction to complete dot product
-	//	for (unsigned i = 1; i <= BLOCKSIZE; i<<=1) {
-	//		int index = (threadIdx.x + 1) * (i << 1) - 1;
-	//		if (index < BLOCKSIZE)
-	//			partialResShared[threadIdx.y][index] += partialResShared[threadIdx.y][index - i];
-	//		__syncthreads();
-	//	}
-	//}
+	// parallel reduction scan
+	if (vecIndex < inputLength && yRow < matrixHeight && zRow < inputHeight)
+	{
+		// compute dot product for each row in input matrix into the 3d shared memory
+		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] = inputShared[threadIdx.z][threadIdx.x] * weightMatrix[mtxIndex];
+		__syncthreads();
+
+		// Complete unrolling for reduction of blockSize (16 * 16 * 4) where x and z = 16 * 16
+		int BlockDim = blockDim.x >> 1;
+		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < inputLength) ?
+			partialResult[threadIdx.z][threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 2;
+		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < inputLength) ?
+			partialResult[threadIdx.z][threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 3;
+		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < inputLength) ?
+			partialResult[threadIdx.z][threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+		BlockDim = blockDim.x >> 4;
+		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] += (threadIdx.x < BlockDim && (vecIndex + BlockDim) < inputLength) ?
+			partialResult[threadIdx.z][threadIdx.y][threadIdx.x + BlockDim] : 0.0f;
+		__syncthreads();
+
+
+		int newOffset = yRow + zRow * inputHeight;
+		if (threadIdx.x == 0)
+			atomicAdd(output + newOffset, partialResult[threadIdx.z][threadIdx.y][threadIdx.x]);
+	}
 }
 
 
