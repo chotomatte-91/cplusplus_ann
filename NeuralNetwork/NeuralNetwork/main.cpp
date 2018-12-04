@@ -35,7 +35,7 @@ void ann_cpu_test()
 	};
 	std::vector<float> labels = { 0, 1, 1, 0 };
 
-	//hardcoded initialization of weights for testing (last value is bias)
+	//hardcoded initialization of weights and bias for testing
 	float i1_h1 = -0.7706f;
 	float i2_h1 = 0.6257f;
 	float h1_bias = 0.1859f;
@@ -46,24 +46,22 @@ void ann_cpu_test()
 	float h2_o1 = 0.3433f;
 	float o1_bias = 0.1328f;
 
-
-	std::vector<float> neuron_one_weights = { i1_h1, i2_h1, h1_bias };
-	std::vector<float> neuron_two_weights = { i1_h2, i2_h2, h2_bias };
-	std::vector<float> output_weights = { h1_o1, h2_o1, o1_bias };
-
-	/*
 	//set weights
-	for (size_t i = 0; i < 3; ++i)
-	{
-	//input to hidden layer
-	nn.getNeuron(0, 1).setWeight();
-	nn.getNeuron(0, 2).setWeight();
+
+	//input layer to first neuron in hidden layer
+	nn.getNeuron(0, 0).setWeight(0, i1_h1);
+	nn.getNeuron(0, 1).setWeight(0, i2_h1);
+  nn.getNeuron(0, 2).setWeight(0, h1_bias);
+
+  //input layer to second neuron in hidden layer
+  nn.getNeuron(0, 0).setWeight(1, i1_h2);
+  nn.getNeuron(0, 1).setWeight(1, i2_h2);
+  nn.getNeuron(0, 2).setWeight(1, h2_bias);
 
 	//hidden to output layer
-	nn.getNeuron(1, 1).setWeight();
-	nn.getNeuron(1, 2).setWeight();
-	}
-	*/
+	nn.getNeuron(1, 0).setWeight(0, h1_o1);
+	nn.getNeuron(1, 1).setWeight(0, h2_o1);
+  nn.getNeuron(1, 2).setWeight(0, o1_bias);
 
 	Neuron& neuron = nn.getNeuron(1, 1);
 	float y = neuron.getOutput();
