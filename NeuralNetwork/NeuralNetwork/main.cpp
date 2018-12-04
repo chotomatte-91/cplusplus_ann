@@ -190,64 +190,71 @@ int main(int argc, char **argv)
 	float *d_output, *h_output, *dh_output;
 	const uint vmSize = std::atoi(argv[1]);
 	const uint debugMode = std::atoi(argv[2]);
-	h_arr1 = new float[vmSize];
-	h_arr2 = new float[vmSize * vmSize];
-	h_output = new float[vmSize];
-	dh_output = new float[vmSize];
+	h_arr1 = new float[vmSize * 12];
+	h_arr2 = new float[vmSize * 12];
+	h_output = new float[vmSize * 12];
+	dh_output = new float[vmSize * 12];
 
-	for (int i = 0; i < vmSize; ++i) {
+	for (int i = 0; i < vmSize*12; ++i) {
 		h_arr1[i] = debugMode == 1 ? 1 : 1.0f / (i + 1);
 		h_output[i] = 0.0f;
-	}
-	for (int i = 0; i < vmSize * vmSize; ++i)
 		h_arr2[i] = 1;
+	}
 
-	checkCudaErrors(cudaMalloc((void **)&(d_arr1), vmSize * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_arr2), vmSize * vmSize * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_output), vmSize * sizeof(float)));
-	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, vmSize * sizeof(float), cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, vmSize * vmSize * sizeof(float), cudaMemcpyHostToDevice));
 
-	auto numberOfRows = (unsigned)ceilf(float(vmSize) / BLOCKSIZE);
-	dim3 gridSize(numberOfRows, numberOfRows, 1);
-	dim3 blockSize(BLOCKSIZE, BLOCKSIZE, 1);
+	checkCudaErrors(cudaMalloc((void **)&(d_arr1), vmSize * 12 * sizeof(float)));
+	checkCudaErrors(cudaMalloc((void **)&(d_arr2), vmSize * 12 * sizeof(float)));
+	checkCudaErrors(cudaMalloc((void **)&(d_output), vmSize * 12 * sizeof(float)));
+	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, vmSize * 12 * sizeof(float), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, vmSize * 12 * sizeof(float), cudaMemcpyHostToDevice));
+
+	auto numberOfRows = (unsigned)ceilf(float(vmSize) / BLOCKSIZEX);
+	auto numOfDataset = (unsigned)ceilf(float(12) / BLOCKSIZEZ);
+	dim3 gridSize(numberOfRows, numberOfRows, numOfDataset);
+	dim3 blockSize(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);
 	sdkResetTimer(&hTimer);
 	sdkStartTimer(&hTimer);
 
-	dotProduct << < gridSize, blockSize >> >(d_arr1, d_arr2, d_output, vmSize);
+	//dotProduct << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, vmSize);
+	feedForward << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, vmSize, 12, 12, 1);
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	checkCudaErrors(cudaMemcpy(dh_output, d_output, vmSize * sizeof(float), cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(dh_output, d_output, vmSize * 12 * sizeof(float), cudaMemcpyDeviceToHost));
 
 	sdkStopTimer(&hTimer);
 	float GPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
 	std::cout << "GPU time taken: " << GPUTime << std::endl << std::endl;
 
+	//for (int i = 0; i < 12; ++i) {
+	//	for (int j = 0; j < vmSize; ++j)
+	//		std::cout << dh_output[j + vmSize * i] << " ";
+	//	std::cout << "\n";
+	//}
 
-	std::cout << "Starting CPU vector to matrix dot product: \n";
-	sdkResetTimer(&hTimer);
-	sdkStartTimer(&hTimer);
-	cpu_VectorMatrixDotProduct(h_arr1, h_arr2, h_output, vmSize);
-	sdkStopTimer(&hTimer);
-	float CPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
-	std::cout << "CPU time taken: " << CPUTime << std::endl << std::endl;
+	//std::cout << "Starting CPU vector to matrix dot product: \n";
+	//sdkResetTimer(&hTimer);
+	//sdkStartTimer(&hTimer);
+	//cpu_VectorMatrixDotProduct(h_arr1, h_arr2, h_output, vmSize);
+	//sdkStopTimer(&hTimer);
+	//float CPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
+	//std::cout << "CPU time taken: " << CPUTime << std::endl << std::endl;
 
-	std::cout << "Checking result:\n";
-	bool result = true;
-	for (int i = 0; i < vmSize; ++i) {
-		if (abs(dh_output[i] - h_output[i]) > EPSILON) {
-			std::cout << "Result dont match at iteration " << i << "\n";
-			std::cout << "dh_output[" << i << "] = " << dh_output[i] << std::endl;
-			std::cout << "h_output [" << i << "] = " << h_output[i] << std::endl;
-			std::cout << "difference: " << dh_output[i] - h_output[i] << std::endl;
-			result = false;
-			break;
-		}
-	}
-	if (result) {
-		std::cout << "Results match\n";
-		std::cout << "Speedup: " << CPUTime / GPUTime << std::endl;
-	}
+	//std::cout << "Checking result:\n";
+	//bool result = true;
+	//for (int i = 0; i < vmSize; ++i) {
+	//	if (abs(dh_output[i] - h_output[i]) > EPSILON) {
+	//		std::cout << "Result dont match at iteration " << i << "\n";
+	//		std::cout << "dh_output[" << i << "] = " << dh_output[i] << std::endl;
+	//		std::cout << "h_output [" << i << "] = " << h_output[i] << std::endl;
+	//		std::cout << "difference: " << dh_output[i] - h_output[i] << std::endl;
+	//		result = false;
+	//		break;
+	//	}
+	//}
+	//if (result) {
+	//	std::cout << "Results match\n";
+	//	std::cout << "Speedup: " << CPUTime / GPUTime << std::endl;
+	//}
 
 	// Clean up
 	checkCudaErrors(cudaFree(d_arr1));
