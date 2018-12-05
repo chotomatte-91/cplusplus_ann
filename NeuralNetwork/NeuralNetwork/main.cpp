@@ -30,11 +30,12 @@ T mytanHPrime(T val)
 	return 1.f - (x * x);
 }
 
+#define TYPE double
 void ann_cpu_test()
 {
 	//two neurons input, two neurons hidden, one neuron output
 	std::vector<unsigned> config{ 2, 2, 1 };
-	NeuralNet nn(config);
+	NeuralNet<TYPE> nn(config);
 
 	//hardcoded XOR input and labels
 	/*XOR TABLE
@@ -44,24 +45,24 @@ void ann_cpu_test()
 	1 1 0
 	*/
 
-	std::vector<std::vector<float>> inputs = {
+	std::vector<std::vector<TYPE>> inputs = {
 	{ 0, 0 },
 	{ 0, 1 },
 	{ 1, 0 },
 	{ 1, 1 }
 	};
-	std::vector<float> labels = { 0, 1, 1, 0 };
+	std::vector<TYPE> labels = { 0, 1, 1, 0 };
 
 	//hardcoded initialization of weights and bias for testing
-	float i1_h1 = -0.7706f;
-	float i2_h1 = 0.6257f;
-	float h1_bias = 0.1859f;
-	float i1_h2 = 0.5607f;
-	float i2_h2 = 0.2109f;
-	float h2_bias = -0.7984f;
-	float h1_o1 = 0.5951f;
-	float h2_o1 = 0.3433f;
-	float o1_bias = 0.1328f;
+  TYPE i1_h1 = (TYPE) -0.7706f;
+  TYPE i2_h1 = (TYPE) 0.6257f;
+  TYPE h1_bias = (TYPE) 0.1859f;
+  TYPE i1_h2 = (TYPE) 0.5607f;
+  TYPE i2_h2 = (TYPE) 0.2109f;
+  TYPE h2_bias = (TYPE) -0.7984f;
+  TYPE h1_o1 = (TYPE) 0.5951f;
+  TYPE h2_o1 = (TYPE) 0.3433f;
+  TYPE o1_bias = (TYPE) 0.1328f;
 
 	//set weights
 
@@ -87,7 +88,7 @@ void ann_cpu_test()
   //sigmoid is activation function for output layer
   nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
-  nn.train(inputs, labels, 0.5f, 1);
+  nn.train(inputs, labels, 0.5, 10000);
   //nn.status();
   nn.printWeights();
 }
