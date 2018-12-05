@@ -155,6 +155,7 @@ __global__ void feedForward(float* __restrict__ inputMatrix, float* __restrict__
 	{
 		// compute dot product for each row in input matrix into the 3d shared memory
 		partialResult[threadIdx.z][threadIdx.y][threadIdx.x] = inputShared[threadIdx.z][threadIdx.x] * weightMatrix[mtxIndex];
+		//printf("%f times %f where weightMatrix index is at %d \n", inputShared[threadIdx.z][threadIdx.x], weightMatrix[mtxIndex], mtxIndex);
 		__syncthreads();
 
 		// Complete unrolling for reduction of blockSize (16 * 16 * 4) where x and z = 16 * 16
@@ -182,6 +183,7 @@ __global__ void feedForward(float* __restrict__ inputMatrix, float* __restrict__
 		int newOffset = yRow + zRow * matrixHeight;
 		if (threadIdx.x == 0)
 			atomicAdd(output + newOffset, partialResult[threadIdx.z][threadIdx.y][0]);
+			//printf("How many times: yRow = %d zRow = %d, values: %f\n", yRow, zRow, partialResult[0][threadIdx.y][0]);
 	}
 }
 
