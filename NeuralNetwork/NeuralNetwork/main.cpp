@@ -2,40 +2,35 @@
 #include "utils\MathUtils.h"
 #include "ann/neuralnet.h"
 #include <cmath>
+#include <algorithm>
 
-template<typename T>
-T mysigmoid(T val)
+float mysigmoid(float val)
 {
-  assert(val >= (T)-709.f);
-  return  1.f / (1.f + (T)std::exp(-val));
+  float denom = 1.f + std::exp(-val);
+  return 1.f/denom;
 }
 
-template<typename T>
-T mysigmoidPrime(T val)
+float mysigmoidPrime(float val)
 {
-  T temp = mysigmoid(val);
+  float temp = mysigmoid(val);
   return temp * (1.f - temp);
 }
 
-template <typename T>
-T mytanH(T val)
+float mytanH(float val)
 {
-  return (T)std::tanh(val);
+	return std::tanh(val);
 }
 
-template <typename T>
-T mytanHPrime(T val)
+float mytanHPrime(float val)
 {
-  T x = (T)std::tanh(val);
-	return 1.f - (x * x);
+	return 1.f - (val * val);
 }
 
-#define TYPE double
 void ann_cpu_test()
 {
 	//two neurons input, two neurons hidden, one neuron output
 	std::vector<unsigned> config{ 2, 2, 1 };
-	NeuralNet<TYPE> nn(config);
+	NeuralNet nn(config);
 
 	//hardcoded XOR input and labels
 	/*XOR TABLE
@@ -45,24 +40,24 @@ void ann_cpu_test()
 	1 1 0
 	*/
 
-	std::vector<std::vector<TYPE>> inputs = {
+	std::vector<std::vector<float>> inputs = {
 	{ 0, 0 },
 	{ 0, 1 },
 	{ 1, 0 },
 	{ 1, 1 }
 	};
-	std::vector<TYPE> labels = { 0, 1, 1, 0 };
+	std::vector<float> labels = { 0, 1, 1, 0 };
 
 	//hardcoded initialization of weights and bias for testing
-  TYPE i1_h1 = (TYPE) -0.7706f;
-  TYPE i2_h1 = (TYPE) 0.6257f;
-  TYPE h1_bias = (TYPE) 0.1859f;
-  TYPE i1_h2 = (TYPE) 0.5607f;
-  TYPE i2_h2 = (TYPE) 0.2109f;
-  TYPE h2_bias = (TYPE) -0.7984f;
-  TYPE h1_o1 = (TYPE) 0.5951f;
-  TYPE h2_o1 = (TYPE) 0.3433f;
-  TYPE o1_bias = (TYPE) 0.1328f;
+	float i1_h1 = -0.7706f;
+	float i2_h1 = 0.6257f;
+	float h1_bias = 0.1859f;
+	float i1_h2 = 0.5607f;
+	float i2_h2 = 0.2109f;
+	float h2_bias = -0.7984f;
+	float h1_o1 = 0.5951f;
+	float h2_o1 = 0.3433f;
+	float o1_bias = 0.1328f;
 
 	//set weights
 
@@ -74,7 +69,7 @@ void ann_cpu_test()
   //input layer to second neuron in hidden layer
   nn.getNeuron(0, 0).setWeight(1, i1_h2);
   nn.getNeuron(0, 1).setWeight(1, i2_h2);
-  nn.getNeuron(0, 2).setWeight(1, h2_bias);
+  nn.getNeuron(0, 2).setWeight(0, h2_bias);
 
 	//hidden to output layer
 	nn.getNeuron(1, 0).setWeight(0, h1_o1);
@@ -88,193 +83,333 @@ void ann_cpu_test()
   //sigmoid is activation function for output layer
   nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
-  nn.train(inputs, labels, 0.5, 10000);
-  //nn.status();
-  nn.printWeights();
+  //nn.train(inputs, labels, 0.5f, 1);
 }
 
 int main(int argc, char **argv)
 {
-	ann_cpu_test();
-#if 0
-	//if (argc != 2) {
-	//	printf("Usage: [image file]");
-	//	return -1;
-	//}
+	//ann_cpu_test();
+#if 1
+	
+  const uint inputHeight = std::atoi(argv[1]);
+  const uint numStream = std::atoi(argv[2]);
+  const uint numIter = std::atoi(argv[3]);
+
+  cudaStream_t* streams;
+  streams = new cudaStream_t[numStream];
+  cudaStreamCreateWithFlags(streams, cudaStreamNonBlocking);
 
 	//Test test
 	std::vector<unsigned> test{ 2, 2, 1 };
 	NeuralNet testNetwork(test);
 
-	int numOfNeurons = 0;
-	std::vector<int> hiddenLayerIndex;
+  //hardcoded initialization of weights and bias for testing
+  float i1_h1 = 1.0f;
+  float i2_h1 = 1.0f;
+  float h1_bias = 1.0f;
+  float i1_h2 = 1.0f;
+  float i2_h2 = 1.0f;
+  float h2_bias = 1.0f;
+  float h1_o1 = 1.0f;
+  float h2_o1 = 1.0f;
+  float o1_bias = 1.0f;
+
+  //set weights
+
+  //input layer to first neuron in hidden layer
+  testNetwork.getNeuron(0, 0).setWeight(0, -0.7706f);
+  testNetwork.getNeuron(0, 0).setWeight(1, -0.7706f);
+  testNetwork.getNeuron(0, 1).setWeight(0, i2_h1);
+  testNetwork.getNeuron(0, 1).setWeight(1, i2_h1);
+  testNetwork.getNeuron(0, 2).setWeight(0, 0);
+  testNetwork.getNeuron(0, 2).setWeight(1, 0);
+
+  testNetwork.getNeuron(1, 0).setWeight(0, 5.0f);
+  testNetwork.getNeuron(1, 1).setWeight(0, i2_h1);
+  testNetwork.getNeuron(1, 2).setWeight(0, 0);
+
+  ////input layer to second neuron in hidden layer
+  //testNetwork.getNeuron(0, 0).setWeight(0, i1_h2);
+  //testNetwork.getNeuron(0, 1).setWeight(1, i2_h2);
+  //testNetwork.getNeuron(0, 2).setWeight(0, h2_bias);
+  //
+  ////hidden to output layer
+  //testNetwork.getNeuron(1, 0).setWeight(0, h1_o1);
+  //testNetwork.getNeuron(1, 1).setWeight(0, h2_o1);
+  //testNetwork.getNeuron(1, 2).setWeight(0, o1_bias);
+
+
+  int hiddenLayerCount = test.size();
 	std::vector<float> weights;
+  std::vector<float> layerSizes;
 	//skip output layer
 	//for each layer
-	for (int i = 0; i < test.size() - 1; ++i)
+	for (int i = 0; i < testNetwork.numLayers(); ++i)
 	{
+    //obtains the number of neurons each layer has
+    layerSizes.push_back(testNetwork.numNeurons(i) - 1);
+
 		//for each neuron
-		for (int j = 0; j < testNetwork.m_layers[i].size(); ++j)
+		for (int j = 0; j < testNetwork.numNeurons(i) - 1; ++j)
 		{
+      testNetwork.getNeuron(i, j).setOutput(1.0f);
 			Neuron temp = testNetwork.getNeuron(i, j);
+      
 			//for each synapse
-			for (int k = 0; k < temp.m_edges.size(); ++k)
+			for (int k = 0; k < temp.numSynapse(); ++k)
 			{
-				weights.push_back(temp.m_edges[k].weight);
+				weights.push_back(temp.getSynapseWeight(k));
 			}
 		}
 	}
+  //testNetwork.getNeuron(2, 0).setOutput(0.0f);
+  //testNetwork.getNeuron(2, 1).setOutput(0.0f);
 
-	std::vector<float> inputVal;
-	for (int i = 0; i < test[0]; ++i)
-	{
-		//get us float* vector; the input
-		inputVal.push_back(testNetwork.getNeuron(0, i).getOutput());
-	}
+  std::vector<float> inputVal;
+  for (int i = 0; i < test[0]; ++i)
+  {
+    //get us float* vector; the input values
+    inputVal.push_back(testNetwork.getNeuron(0, i).getOutput());
+  }
 
-	float * h_input = &inputVal[0];
+  //get the sizes of the inputMatrix and weightMatrix's height.
+  //weightMatrix size startVecLength * startMatHeight
+  //going forward, we can push in test/config ptr into GPU then we access the length value directly from GPU call
+  int startVecLength = layerSizes[0], startMatHeight = layerSizes[1];
+  int prevVecLength = 0, prevMatHeight = 0;
+  float maxLayerSize = *std::max_element(std::begin(layerSizes), std::end(layerSizes));
 
-	//offset outselves to get correct set of weights
-	float * h_hiddenWeights = &weights[0];
+  //Weightsize is so as num of weights per layer = next layer's count of neurons * curr layer's count of neurons
+  uint weightSize = maxLayerSize * maxLayerSize;
+  float* h_inputCUDA, *h_weights, *h_finalOutputCUDA, *h_weightCUDA;
+  float* d_inputCUDA, *d_hiddenLayerCUDA, *d_weights, *d_finalOutputCUDA;
 
-	//get the sizes of the inputMatrix and weightMatrix's height.
-	//weightMatrix size startVecLength * startMatHeight
-	//going forward, we can push in test/config ptr into GPU then we access the length value directly from GPU call
-	int startVecLength = test[0], startMatHeight = test[1];
+  StopWatchInterface *hTimer = NULL;
+  sdkCreateTimer(&hTimer);
 
+  //pin memory for streams
+  //h_input length is just the size of the layer
+  checkCudaErrors(cudaHostAlloc((void **)&h_inputCUDA, maxLayerSize * maxLayerSize * sizeof(float), cudaHostAllocDefault));
+  checkCudaErrors(cudaHostAlloc((void **)&h_weights, weights.size() * sizeof(float), cudaHostAllocDefault));
+  checkCudaErrors(cudaHostAlloc((void **)&h_weightCUDA, weights.size() * sizeof(float), cudaHostAllocDefault));
+  checkCudaErrors(cudaHostAlloc((void **)&h_finalOutputCUDA, maxLayerSize * maxLayerSize * sizeof(float), cudaHostAllocDefault));
 
+  //ptr to the first element
+  checkCudaErrors(cudaMemcpy(h_inputCUDA, &inputVal[0], inputVal.size() * sizeof(float), cudaMemcpyHostToHost));
+  
+  for (int i = 0; i < inputVal.size(); ++i)
+  {
+    std::cout << "inputVal[" << i << "] = " << inputVal[i] << std::endl;
+    std::cout << "h_inputCUDA[" << i << "] = " << h_inputCUDA[i] << std::endl << std::endl;
+  }
 
-	////weightMatrix for 1st layer
-	//float * tempWeightMat = new float[numOfNeurons];
-	//
-	////update weightMatrix with synapse weight
-	//for (int i = 0; i < numOfNeurons; ++i)
-	//{
-	//	for (int j = 0; j < testNetwork.m_layers[i].size(); ++j)
-	//		tempWeightMat[i] = testNetwork.getNeuron(i, j).;
-	//}
+  //offset outselves to get correct set of weights
+  checkCudaErrors(cudaMemcpy(h_weights, &weights[0], weights.size() * sizeof(float), cudaMemcpyHostToHost));
 
-	//
+  for (int i = 0; i < weights.size(); ++i)
+  {
+    std::cout << "weights[" << i << "] = " << weights[i] << std::endl;
+    std::cout << "h_weights[" << i << "] = " << h_weights[i] << std::endl << std::endl;
+  }
 
+  checkCudaErrors(cudaMalloc((void **)&d_inputCUDA, maxLayerSize * maxLayerSize * sizeof(float)));
+  checkCudaErrors(cudaMalloc((void **)&d_hiddenLayerCUDA, maxLayerSize * maxLayerSize * sizeof(float)));
+  checkCudaErrors(cudaMalloc((void **)&d_weights, weights.size() * sizeof(float)));
+  checkCudaErrors(cudaMalloc((void **)&d_finalOutputCUDA, maxLayerSize * maxLayerSize * sizeof(float)));
 
-	StopWatchInterface *hTimer = NULL;
-	sdkCreateTimer(&hTimer);
-	cudaDeviceProp deviceProp;
-	deviceProp.major = 0;
-	deviceProp.minor = 0;
+  //gpu set up for stream calling for feed forward
+  sdkResetTimer(&hTimer);
+  sdkStartTimer(&hTimer);
 
-	// For this ANN, we are only dealing with 3 layers
-	//bmp_header header;
-	//unsigned char* imageData;
-	//float* h_input;
-	//float* d_inLayer, d_outLayer;
+  for (int iteration = 0; iteration < numIter; ++iteration)
+  {
+    uint rowPtsPerStream = ceilf((float)startVecLength / (float)numStream);
+    uint elementsPerStream = rowPtsPerStream;
+    uint elePerBatch;
 
-	//Use command-line specified CUDA device, otherwise use device with highest Gflops/s
-	int dev = findCudaDevice(argc, (const char **)argv);
+    for (int j = 0; j < numStream; ++j)
+    {
+      int offset = elementsPerStream * j;
+      if (j == numStream - 1)
+      {
+        elePerBatch = (startVecLength - (rowPtsPerStream * j));
+      }
+      else
+      {
+        elePerBatch = elementsPerStream;
+      }
+      //create Streams and copy data from host into device using streams
+      cudaStreamCreate(&streams[j]);
+      checkCudaErrors(cudaMemcpyAsync(d_inputCUDA + offset, h_inputCUDA + offset, elePerBatch * startVecLength * sizeof(float), cudaMemcpyHostToDevice, streams[j]));
+    }
 
-	checkCudaErrors(cudaGetDeviceProperties(&deviceProp, dev));
-	cudaGetDevice(&dev);
+    for (int k = 0; k < numStream; ++k)
+    {
+      cudaStreamSynchronize(streams[k]);
+    }
 
-	printf("CUDA device [%s] has %d Multi-Processors, Compute %d.%d\n",
-		deviceProp.name, deviceProp.multiProcessorCount, deviceProp.major, deviceProp.minor);
+    //0 is input layer
+    for (int i = 1; i < hiddenLayerCount; ++i)
+    {
+      //to iterate through the sizes for the layer to get the new vecLength and matHeight
+      //i - 1 since we start from i = 1
+      startVecLength = layerSizes[i - 1];
+      startMatHeight = layerSizes[i];
+      
+      uint weightOffset = prevVecLength * prevMatHeight * (i - 1);
 
-	//bmp_read(argv[1], &header, &imageData);
-	//int imageWidth = header.width;
-	//int imageHeight = header.height;
-	//int imageChannels = 3;
-	//double dAvgSecs;
-	//uint byteCount = imageWidth * imageHeight * imageChannels * sizeof(unsigned char);
+      checkCudaErrors(cudaMemset(d_hiddenLayerCUDA, 0, maxLayerSize * maxLayerSize * sizeof(float)));
 
-	/*
-	----------------------------
-	VECTOR TO MATRIX DOT PRODUCT
-	----------------------------
-	*/
-	std::cout << "Starting GPU vector to matrix dot product: \n";
-	std::cout << "Length: " << std::atoi(argv[1]) << std::endl;
+      //uint largestOffset = inputHeight < startMatHeight ? startMatHeight : inputHeight;
+      auto numberOfRows = (unsigned)ceilf(float(startVecLength) / BLOCKSIZEX);
+      auto numOfCol = (unsigned)ceilf(float(startMatHeight) / BLOCKSIZEY);
+      auto numOfDataset = (unsigned)ceilf(float(inputHeight) / BLOCKSIZEZ);
+      dim3 gridSize(numberOfRows, numOfCol, numOfDataset);
+      dim3 blockSize(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);
+      /////
+      
+      uint weightsPerStream = ceilf((float)startMatHeight / (float)numStream);
+      for (int j = 0; j < numStream; ++j)
+      {
+        int offset = startMatHeight * j;
+        if (j == numStream - 1)
+        {
+          elePerBatch = (startMatHeight - (weightsPerStream * j));
+        }
+        else
+        {
+          elePerBatch = startMatHeight;
+        }
+        //update weights every loop
+        checkCudaErrors(cudaMemcpyAsync(d_weights + offset, h_weights + offset + weightOffset, elePerBatch * startVecLength * sizeof(float), cudaMemcpyHostToDevice, streams[j]));
+      }
 
-	// YANWEN TEST
-	float *d_arr1, *d_arr2, *h_arr1, *h_arr2;
-	float *d_output, *h_output, *dh_output;
-	const uint inputSize = std::atoi(argv[1]);
-	const uint inputHeight = std::atoi(argv[2]);
-	const uint matrixHeight = std::atoi(argv[3]);
-	h_arr1 = new float[inputSize * inputHeight];
-	h_arr2 = new float[inputSize * matrixHeight];
-	h_output = new float[inputHeight * matrixHeight];
-	dh_output = new float[inputHeight * matrixHeight];
+      for (int k = 0; k < numStream; ++k)
+      {
+        cudaStreamSynchronize(streams[k]);
+      }
 
-	for (int i = 0; i < inputSize*inputHeight; ++i)
-		h_arr1[i] = i;
-	
-	for(int i = 0; i < inputSize * matrixHeight; ++i)
-		h_arr2[i] = 0.001;
+      rowPtsPerStream = ceilf((float)(startVecLength - 2) / (float)numStream);
+      uint amountPerBatch = rowPtsPerStream + 2;
+      elePerBatch = (startVecLength - 2 - (rowPtsPerStream * (numStream - 1)));
+      uint amountLastBatch = elePerBatch + 2;
+      uint amountRows;
 
-	for (int i = 0; i < matrixHeight * inputHeight; ++i)
-		h_output[i] = 0.0f;
+      for (int j = 0; j < numStream; ++j)
+      {
+        //shift away the ptr to point at correct elements
+        int offset = rowPtsPerStream * j;
+        if (j == numStream - 1)
+        {
+          amountRows = amountLastBatch;
+        }
+        else
+        {
+          amountRows = amountPerBatch;
+        }
+        //Kernel func call//
+        feedForward << < gridSize, blockSize, 0, streams[j] >> > (d_inputCUDA + offset, d_weights + offset, d_hiddenLayerCUDA + offset, startVecLength, inputHeight, startMatHeight, 0);
+        getLastCudaError("JI BA BOOM\n");
+        ////
+      }
 
+      for (int k = 0; k < numStream; ++k)
+      {
+        cudaStreamSynchronize(streams[k]);
+      }
 
-	checkCudaErrors(cudaMalloc((void **)&(d_arr1), inputSize * inputHeight * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_arr2), inputSize * matrixHeight * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_output), matrixHeight * inputHeight * sizeof(float)));
-	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, inputSize * inputHeight * sizeof(float), cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, inputSize * matrixHeight * sizeof(float), cudaMemcpyHostToDevice));
+      float* justToSwap = d_inputCUDA;
+      //swap ptr for next iter
+      d_inputCUDA = d_hiddenLayerCUDA;
+      d_hiddenLayerCUDA = justToSwap;
 
-	auto numberOfRows = (unsigned)ceilf(float(inputSize) / BLOCKSIZEX);
-	auto numOfCol = (unsigned)ceilf(float(matrixHeight) / BLOCKSIZEY);
-	auto numOfDataset = (unsigned)ceilf(float(inputHeight) / BLOCKSIZEZ);
-	dim3 gridSize(numberOfRows, numOfCol, numOfDataset);
-	dim3 blockSize(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);
-	sdkResetTimer(&hTimer);
-	sdkStartTimer(&hTimer);
+      prevVecLength = startVecLength;
+      prevMatHeight = startMatHeight;
+    }
 
-	//dotProduct << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, inputSize);
-	feedForward << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, inputSize, inputHeight, matrixHeight, 0);
-	checkCudaErrors(cudaDeviceSynchronize());
+    for (int j = 0; j < numStream; ++j)
+    {
+      if ((hiddenLayerCount % 2) == 0)
+      {
+        //d_finalOutputCUDA = d_hiddenLayerCUDA;
+        checkCudaErrors(cudaMemcpyAsync(d_finalOutputCUDA, d_hiddenLayerCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToDevice, streams[j]));
+      }
+      else
+      {
+        //d_finalOutputCUDA = d_inputCUDA;
+        checkCudaErrors(cudaMemcpyAsync(d_finalOutputCUDA, d_inputCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToDevice, streams[j]));
+      }
+      checkCudaErrors(cudaMemcpyAsync(h_finalOutputCUDA, d_finalOutputCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToHost, streams[j]));
+    }
 
-	checkCudaErrors(cudaMemcpy(dh_output, d_output, inputHeight * matrixHeight * sizeof(float), cudaMemcpyDeviceToHost));
+    for (int k = 0; k < numStream; ++k)
+    {
+      cudaStreamSynchronize(streams[k]);
+      cudaStreamDestroy(streams[k]);
+    }
+    
+    ////
 
-	sdkStopTimer(&hTimer);
-	float GPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
-	std::cout << "GPU time taken: " << GPUTime << std::endl << std::endl;
+    //if ((hiddenLayerCount % 2) == 0)
+    //{
+    //  //d_finalOutputCUDA = d_hiddenLayerCUDA;
+    //  checkCudaErrors(cudaMemcpy(d_finalOutputCUDA, d_hiddenLayerCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToDevice));
+    //}
+    //else
+    //{
+    //  //d_finalOutputCUDA = d_inputCUDA;
+    //  checkCudaErrors(cudaMemcpy(d_finalOutputCUDA, d_inputCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToDevice));
+    //}
+    //checkCudaErrors(cudaMemcpy(h_finalOutputCUDA, d_finalOutputCUDA, maxLayerSize * startVecLength * sizeof(float), cudaMemcpyDeviceToHost));
 
-	//for (int i = 0; i < 12; ++i) {
-	//	for (int j = 0; j < vmSize; ++j)
-	//		std::cout << dh_output[j + vmSize * i] << " ";
-	//	std::cout << "\n";
-	//}
+    //checkCudaErrors(cudaMemcpy(h_weightCUDA, d_weights, weightSize * sizeof(float), cudaMemcpyDeviceToHost));
+  }
+  for (int i = 0; i < maxLayerSize * startVecLength; ++i)
+  {
+    std::cout << "h_finalOutputCUDA[" << i << "] = " << h_finalOutputCUDA[i] << std::endl << std::endl;
+  }
 
-	//std::cout << "Starting CPU vector to matrix dot product: \n";
-	//sdkResetTimer(&hTimer);
-	//sdkStartTimer(&hTimer);
-	//cpu_VectorMatrixDotProduct(h_arr1, h_arr2, h_output, vmSize);
-	//sdkStopTimer(&hTimer);
-	//float CPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
-	//std::cout << "CPU time taken: " << CPUTime << std::endl << std::endl;
+  //for (int i = 0; i < weightSize; ++i)
+  //{
+  //  std::cout << "h_weightCUDA[" << i << "] = " << h_weightCUDA[i] << std::endl << std::endl;
+  //}
+  
+  std::vector<std::vector<float>> inputs = {
+  { 1, 1 }
+  //{ 1, 1 },
+  //{ 1, 1 },
+  //{ 1, 1 }
+  };
+  std::vector<float> labels = { 0 };
+  std::vector<float> myOutput;
+  testNetwork.train(inputs, labels, 1.0f, numIter, myOutput);
 
-	//std::cout << "Checking result:\n";
-	//bool result = true;
-	//for (int i = 0; i < vmSize; ++i) {
-	//	if (abs(dh_output[i] - h_output[i]) > EPSILON) {
-	//		std::cout << "Result dont match at iteration " << i << "\n";
-	//		std::cout << "dh_output[" << i << "] = " << dh_output[i] << std::endl;
-	//		std::cout << "h_output [" << i << "] = " << h_output[i] << std::endl;
-	//		std::cout << "difference: " << dh_output[i] - h_output[i] << std::endl;
-	//		result = false;
-	//		break;
-	//	}
-	//}
-	//if (result) {
-	//	std::cout << "Results match\n";
-	//	std::cout << "Speedup: " << CPUTime / GPUTime << std::endl;
-	//}
+  std::cout << "Checking result:\n";
+  bool result = true;
+  for (int i = 0; i < myOutput.size(); ++i) {
+  	if (abs(h_finalOutputCUDA[i] - myOutput[i]) > EPSILON) {
+  		std::cout << "Result dont match at iteration " << i << "\n";
+  		std::cout << "h_finalOutputCUDA[" << i << "] = " << h_finalOutputCUDA[i] << std::endl;
+  		std::cout << "myOutput [" << i << "] = " << myOutput[i] << std::endl;
+  		result = false;
+  		//break;
+  	}
+  }
+  if (result) {
+  	std::cout << "Results match\n";
+  //	std::cout << "Speedup: " << CPUTime / GPUTime << std::endl;
+  }
 
-	// Clean up
-	checkCudaErrors(cudaFree(d_arr1));
-	checkCudaErrors(cudaFree(d_arr2));
-	checkCudaErrors(cudaFree(d_output));
-	delete[] h_arr1;
-	delete[] h_arr2;
-	delete[] h_output;
+  delete[] streams;
+  //free cuda malloc memory
+  checkCudaErrors(cudaFree(d_inputCUDA));
+  checkCudaErrors(cudaFree(d_weights));
+  checkCudaErrors(cudaFree(d_hiddenLayerCUDA));
+  checkCudaErrors(cudaFree(d_finalOutputCUDA));
+
+  //free pinned memory
+  checkCudaErrors(cudaFreeHost(h_inputCUDA));
+  checkCudaErrors(cudaFreeHost(h_weights));
+  checkCudaErrors(cudaFreeHost(h_finalOutputCUDA));
 #endif
 }
