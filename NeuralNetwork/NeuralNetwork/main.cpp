@@ -188,38 +188,43 @@ int main(int argc, char **argv)
 	// YANWEN TEST
 	float *d_arr1, *d_arr2, *h_arr1, *h_arr2;
 	float *d_output, *h_output, *dh_output;
-	const uint vmSize = std::atoi(argv[1]);
-	const uint debugMode = std::atoi(argv[2]);
-	h_arr1 = new float[vmSize * 12];
-	h_arr2 = new float[vmSize * 12];
-	h_output = new float[vmSize * 12];
-	dh_output = new float[vmSize * 12];
+	const uint inputSize = std::atoi(argv[1]);
+	const uint inputHeight = std::atoi(argv[2]);
+	const uint matrixHeight = std::atoi(argv[3]);
+	h_arr1 = new float[inputSize * inputHeight];
+	h_arr2 = new float[inputSize * inputHeight];
+	h_output = new float[inputHeight * matrixHeight];
+	dh_output = new float[inputHeight * matrixHeight];
 
-	for (int i = 0; i < vmSize*12; ++i) {
-		h_arr1[i] = debugMode == 1 ? 1 : 1.0f / (i + 1);
-		h_output[i] = 0.0f;
+	for (int i = 0; i < inputSize*inputHeight; ++i) {
+		h_arr1[i] = i;
 		h_arr2[i] = 1;
 	}
 
+	for (int i = 0; i < matrixHeight * inputHeight; ++i)
+		h_output[i] = 0.0f;
 
-	checkCudaErrors(cudaMalloc((void **)&(d_arr1), vmSize * 12 * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_arr2), vmSize * 12 * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_output), vmSize * 12 * sizeof(float)));
-	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, vmSize * 12 * sizeof(float), cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, vmSize * 12 * sizeof(float), cudaMemcpyHostToDevice));
 
-	auto numberOfRows = (unsigned)ceilf(float(vmSize) / BLOCKSIZEX);
-	auto numOfDataset = (unsigned)ceilf(float(12) / BLOCKSIZEZ);
-	dim3 gridSize(numberOfRows, numberOfRows, numOfDataset);
+	checkCudaErrors(cudaMalloc((void **)&(d_arr1), inputSize * inputHeight * sizeof(float)));
+	checkCudaErrors(cudaMalloc((void **)&(d_arr2), inputSize * inputHeight * sizeof(float)));
+	checkCudaErrors(cudaMalloc((void **)&(d_output), matrixHeight * inputHeight * sizeof(float)));
+	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, inputSize * inputHeight * sizeof(float), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, inputSize * inputHeight * sizeof(float), cudaMemcpyHostToDevice));
+
+	uint largestOffset = inputHeight < matrixHeight ? matrixHeight : inputHeight;
+	auto numberOfRows = (unsigned)ceilf(float(inputSize) / BLOCKSIZEX);
+	auto numOfCol = (unsigned)ceilf(float(largestOffset) / BLOCKSIZEY);
+	auto numOfDataset = (unsigned)ceilf(float(inputHeight) / BLOCKSIZEZ);
+	dim3 gridSize(numberOfRows, numOfCol, numOfDataset);
 	dim3 blockSize(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);
 	sdkResetTimer(&hTimer);
 	sdkStartTimer(&hTimer);
 
-	//dotProduct << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, vmSize);
-	feedForward << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, vmSize, 12, 12, 1);
+	//dotProduct << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, inputSize);
+	feedForward << < gridSize, blockSize >> > (d_arr1, d_arr2, d_output, inputSize, inputHeight, matrixHeight, 0);
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	checkCudaErrors(cudaMemcpy(dh_output, d_output, vmSize * 12 * sizeof(float), cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(dh_output, d_output, inputHeight * matrixHeight * sizeof(float), cudaMemcpyDeviceToHost));
 
 	sdkStopTimer(&hTimer);
 	float GPUTime = 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
