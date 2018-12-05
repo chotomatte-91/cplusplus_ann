@@ -23,7 +23,7 @@ public:
   void calculateOutput(const Layer& previousLayer);
   void computeOutputGradients(float expectedValue);
   void computeHiddenGradients(const Layer& nextLayer);
-  void updateWeights(Layer& previousLayer);
+  void updateWeights(Layer& previousLayer, float a);
   
   void setWeight(unsigned to_index, float weight);
   void setOutput(float val);
@@ -31,8 +31,8 @@ public:
   float getOutput() const;
 
 private:
-  ActivationFunc m_func = nullptr;
-  ActivationFunc m_derivative = nullptr;
+  ActivationFunc m_func;
+  ActivationFunc m_derivative;
   float m_output;
   float m_gradient;
   unsigned m_index;
@@ -46,13 +46,14 @@ class NeuralNet
 public:
   NeuralNet(const std::vector<unsigned>& config);
   Neuron& getNeuron(unsigned layerIndex, unsigned index);
-  void train(const Matrix& inputs, const std::vector<float>& labels, unsigned numIter);
+  void train(const Matrix& inputs, const std::vector<float>& labels, float learningRate, unsigned numIter);
   float predict(const std::vector<float>& input);
   size_t numLayers() const;
+  size_t numNeurons(unsigned layerIndex) const;
 
 private:
   float forward(const std::vector<float>& inputvalues);
-  float back(const std::vector<float>& predicted, const std::vector<float>& labels);
+  float back(const std::vector<float>& predicted, const std::vector<float>& labels, float alpha);
 
   std::vector<Layer> m_layers;
 };

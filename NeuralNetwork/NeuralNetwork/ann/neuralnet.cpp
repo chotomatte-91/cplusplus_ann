@@ -6,6 +6,9 @@
 //random number generator
 static RNG rng;
 
+//default activation func does nothing
+float defaultFunc(float x) { return x; }
+
 //error function
 float rmse(const std::vector<float>& predicted, const std::vector<float>& expected)
 {
@@ -18,12 +21,15 @@ float rmse(const std::vector<float>& predicted, const std::vector<float>& expect
     float d = expected[i] - predicted[i];
     error += (d * d);
   }
-  return std::sqrtf(error / static_cast<float>(N));
+  //return std::sqrtf(error / static_cast<float>(N));
+  return (error / (2 * N));
 }
 
 Neuron::Neuron(unsigned numOutputs, unsigned index) :
   m_output(0.f),
-  m_index(index)
+  m_index(index),
+  m_func(defaultFunc),
+  m_derivative(defaultFunc)
 {
   for (unsigned i = 0; i < numOutputs; ++i)
   {
@@ -79,16 +85,14 @@ void Neuron::computeHiddenGradients(const Layer& nextLayer)
   float dW = 0.f;
 
   //sum contribution of errors at nodes of next layer
-  for (size_t i = 0; i < nextLayer.size(); ++i)
+  for (size_t i = 0; i < nextLayer.size()-1; ++i)
     dW += m_edges[i].weight * nextLayer[i].m_gradient;
 
   m_gradient = dW * m_derivative(m_output);
 }
 
-void Neuron::updateWeights(Layer& prevLayer)
+void Neuron::updateWeights(Layer& prevLayer, float alpha)
 {
-  float alpha = 0.f;
-
   //update the weights in the previous layer
   for (size_t i = 0; i < prevLayer.size(); ++i)
   {
@@ -157,14 +161,14 @@ float NeuralNet::forward(const std::vector<float>& inputs)
 }
 
 
-float NeuralNet::back(const std::vector<float>& predicted, const std::vector<float>& labels)
+float NeuralNet::back(const std::vector<float>& predicted, const std::vector<float>& labels, float alpha)
 {
   //calculate rmse
   float err = rmse(predicted, labels);
 
   //calculate gradient at output layer
   Layer& outputLayer = m_layers.back();
-  for (size_t i = 0; i < outputLayer.size(); ++i)
+  for (size_t i = 0; i < outputLayer.size()-1; ++i)
     outputLayer[i].computeOutputGradients(labels[i]);
 
   //calculate gradients of hidden layers
@@ -185,13 +189,13 @@ float NeuralNet::back(const std::vector<float>& predicted, const std::vector<flo
     Layer& prevLayer= m_layers[i-1];
 
     for(size_t n = 0; n < currentLayer.size()-1; ++n)
-      currentLayer[n].updateWeights(prevLayer);
+      currentLayer[n].updateWeights(prevLayer, alpha);
   }
   
   return err;
 }
 
-void NeuralNet::train(const Matrix& inputs, const std::vector<float>& labels, unsigned numIterations)
+void NeuralNet::train(const Matrix& inputs, const std::vector<float>& labels, float learningRate, unsigned numIterations)
 {
   //number of rows = number of inputs
   size_t numInputs = inputs.size();
@@ -208,7 +212,7 @@ void NeuralNet::train(const Matrix& inputs, const std::vector<float>& labels, un
       outputs[j] = forward(inputs[j]);
 
     //back propagate
-    float error = back(outputs, labels);
+    float error = back(outputs, labels, learningRate);
 
     //output error
     std::cout << "Error in " << i+1 << " iteration: " << error << std::endl; 
@@ -223,4 +227,9 @@ float NeuralNet::predict(const std::vector<float>& input)
 size_t NeuralNet::numLayers() const
 {
   return m_layers.size();
+}
+
+size_t NeuralNet::numNeurons(unsigned index) const
+{
+  return m_layers[index].size();
 }

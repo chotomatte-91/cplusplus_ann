@@ -75,14 +75,14 @@ void ann_cpu_test()
 	nn.getNeuron(1, 1).setWeight(0, h2_o1);
   nn.getNeuron(1, 2).setWeight(0, o1_bias);
 
-  //tanh is activation function for hidden layer
+  //tanh is activation function for input and hidden layer
   nn.getNeuron(1, 0).setActivationFunctions(mytanH, mytanHPrime);
   nn.getNeuron(1, 1).setActivationFunctions(mytanH, mytanHPrime);
 
   //sigmoid is activation function for output layer
   nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
-  nn.train(inputs, labels, 1);
+  nn.train(inputs, labels, 0.5f, 1);
 }
 
 int main(int argc, char **argv)
