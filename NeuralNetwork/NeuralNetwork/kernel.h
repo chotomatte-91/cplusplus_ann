@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <helper_cuda.h>
 #include <helper_functions.h>
-#include "ann/neuralnet.h"
-
 using uint = unsigned int;
 
 #define BLOCKSIZE 32

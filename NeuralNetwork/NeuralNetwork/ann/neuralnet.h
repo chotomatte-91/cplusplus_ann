@@ -4,6 +4,7 @@
 
 #include <vector>
 
+
 class Neuron;
 struct Synapse
 {
@@ -28,12 +29,17 @@ public:
   void setWeight(unsigned to_index, float weight);
   void setOutput(float val);
   void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
+
+  void status() const;
+  float getWeight(unsigned toNeuronIndex) const;
+  std::vector<float> getWeights() const;
   float getOutput() const;
 
 private:
   ActivationFunc m_func;
   ActivationFunc m_derivative;
   float m_output;
+  float m_input;
   float m_gradient;
   unsigned m_index;
   std::vector<Synapse> m_edges;
@@ -50,6 +56,8 @@ public:
   float predict(const std::vector<float>& input);
   size_t numLayers() const;
   size_t numNeurons(unsigned layerIndex) const;
+  void status();
+  void printWeights();
 
 private:
   float forward(const std::vector<float>& inputvalues);

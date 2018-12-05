@@ -1,13 +1,16 @@
 #include "neuralnet.h"
 #include <cassert>
 #include <iostream>
+#include <string>
 #include "../utils/rng.h"
+
 
 //random number generator
 static RNG rng;
 
 //default activation func does nothing
-float defaultFunc(float x) { return x; }
+float identity(float x) { return x; }
+float identityDerivative(float x) { return 1.f; }
 
 //error function
 float rmse(const std::vector<float>& predicted, const std::vector<float>& expected)
@@ -27,9 +30,10 @@ float rmse(const std::vector<float>& predicted, const std::vector<float>& expect
 
 Neuron::Neuron(unsigned numOutputs, unsigned index) :
   m_output(0.f),
+  m_input(0.f),
   m_index(index),
-  m_func(defaultFunc),
-  m_derivative(defaultFunc)
+  m_func(identity),
+  m_derivative(identityDerivative)
 {
   for (unsigned i = 0; i < numOutputs; ++i)
   {
@@ -66,17 +70,18 @@ void Neuron::calculateOutput(const Layer& previousLayer)
 
   //inner product of previous layer output and weights
   for (size_t n = 0; n < previousLayer.size(); ++n)
-    innerproduct += previousLayer[n].getOutput() * previousLayer[n].m_edges[m_index].weight;
+    innerproduct += (previousLayer[n].getOutput() * previousLayer[n].m_edges[m_index].weight);
 
   //y = f(x), where x is the innerproduct calculated previously
+  m_input = innerproduct;
   assert(m_func != nullptr);
-  m_output = m_func(innerproduct);
+  m_output = m_func(m_input);
 }
 
 void Neuron::computeOutputGradients(float expectedValue)
 {
   float delta = expectedValue - m_output;
-  m_gradient = delta * m_derivative(m_output);
+  m_gradient = delta * m_derivative(m_input);
 }
 
 
@@ -88,7 +93,7 @@ void Neuron::computeHiddenGradients(const Layer& nextLayer)
   for (size_t i = 0; i < nextLayer.size()-1; ++i)
     dW += m_edges[i].weight * nextLayer[i].m_gradient;
 
-  m_gradient = dW * m_derivative(m_output);
+  m_gradient = dW * m_derivative(m_input);
 }
 
 void Neuron::updateWeights(Layer& prevLayer, float alpha)
@@ -102,6 +107,27 @@ void Neuron::updateWeights(Layer& prevLayer, float alpha)
     prevNeuron.m_edges[m_index].deltaWeight = new_deltaWeight;
     prevNeuron.m_edges[m_index].weight += new_deltaWeight;
   }
+}
+
+void Neuron::status() const
+{
+  std::string toPrint = "Neuron " + std::to_string(m_index);
+  std::cout << "------------------------------" << toPrint << "-----------------------------" << std::endl;
+  std::cout << "Output: " << m_output << std::endl;
+  std::cout << "Gradient: " << m_gradient << std::endl;
+}
+
+std::vector<float> Neuron::getWeights() const
+{
+  std::vector<float> weights(m_edges.size(), 0.f);
+  for (size_t i = 0; i < m_edges.size(); ++i)
+    weights[i] = m_edges[i].weight;
+  return weights;
+}
+
+float Neuron::getWeight(unsigned toNeuronIndex) const
+{
+  return m_edges[toNeuronIndex].weight;
 }
 
 Neuron& NeuralNet::getNeuron(unsigned layerIndex, unsigned index)
@@ -232,4 +258,45 @@ size_t NeuralNet::numLayers() const
 size_t NeuralNet::numNeurons(unsigned index) const
 {
   return m_layers[index].size();
+}
+
+void NeuralNet::status()
+{
+  size_t N = numLayers();
+
+  for (size_t i = 0; i < N; ++i)
+  {
+    if (i == 0)
+      std::cout << "INPUT LAYER" << std::endl;
+    else if (i == N - 1)
+      std::cout << "OUTPUT LAYER" << std::endl;
+    else
+      std::cout << "HIDDEN LAYER" << std::endl;
+
+    for (size_t j = 0; j < numNeurons(i); ++j)
+      getNeuron(i, j).status();
+
+    std::cout << "-------------------------------------------------------------------" << std::endl;
+  }
+}
+
+void NeuralNet::printWeights()
+{
+  float i1h1 = getNeuron(0, 0).getWeight(0);
+  float i2h1 = getNeuron(0, 1).getWeight(0);
+  float h1_bias = getNeuron(0, 2).getWeight(0);
+
+  float i1h2 = getNeuron(0, 0).getWeight(1);
+  float i2h2 = getNeuron(0, 1).getWeight(1);
+  float h2_bias = getNeuron(0, 2).getWeight(1);
+
+  float h1o1 = getNeuron(1, 0).getWeight(0);
+  float h2o1 = getNeuron(1, 1).getWeight(0);
+  float o1_bias = getNeuron(1, 2).getWeight(0);
+
+  std::cout << "Input layer to hidden layer weights" << std::endl;
+  std::cout << "[" << h1_bias << ", " << i1h1 << ", " << i2h1 << "] ";
+  std::cout << "[" << h2_bias << ", " << i1h2 << ", " << i2h2 << "]" << std::endl;
+  std::cout << "hidden layer to output layer weights" << std::endl;
+  std::cout << "[" << o1_bias << ", " << h1o1 << ", " << h2o1 << "]" << std::endl;
 }

@@ -3,26 +3,31 @@
 #include "ann/neuralnet.h"
 #include <cmath>
 
-float mysigmoid(float val)
+template<typename T>
+T mysigmoid(T val)
 {
-  float denom = 1.f + std::exp(-val);
-  return 1.f/denom;
+  assert(val >= (T)-709.f);
+  return  1.f / (1.f + (T)std::exp(-val));
 }
 
-float mysigmoidPrime(float val)
+template<typename T>
+T mysigmoidPrime(T val)
 {
-  float temp = mysigmoid(val);
+  T temp = mysigmoid(val);
   return temp * (1.f - temp);
 }
 
-float mytanH(float val)
+template <typename T>
+T mytanH(T val)
 {
-	return std::tanh(val);
+  return (T)std::tanh(val);
 }
 
-float mytanHPrime(float val)
+template <typename T>
+T mytanHPrime(T val)
 {
-	return 1.f - (val * val);
+  T x = (T)std::tanh(val);
+	return 1.f - (x * x);
 }
 
 void ann_cpu_test()
@@ -83,6 +88,8 @@ void ann_cpu_test()
   nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
   nn.train(inputs, labels, 0.5f, 1);
+  //nn.status();
+  nn.printWeights();
 }
 
 int main(int argc, char **argv)
