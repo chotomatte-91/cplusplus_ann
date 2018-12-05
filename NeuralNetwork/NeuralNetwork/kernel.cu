@@ -179,9 +179,9 @@ __global__ void feedForward(float* __restrict__ inputMatrix, float* __restrict__
 		__syncthreads();
 
 
-		int newOffset = yRow + zRow * inputHeight;
+		int newOffset = yRow + zRow * matrixHeight;
 		if (threadIdx.x == 0)
-			atomicAdd(output + newOffset, partialResult[threadIdx.z][threadIdx.y][threadIdx.x]);
+			atomicAdd(output + newOffset, partialResult[threadIdx.z][threadIdx.y][0]);
 	}
 }
 
