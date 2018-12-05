@@ -200,28 +200,28 @@ int main(int argc, char **argv)
 	const uint inputHeight = std::atoi(argv[2]);
 	const uint matrixHeight = std::atoi(argv[3]);
 	h_arr1 = new float[inputSize * inputHeight];
-	h_arr2 = new float[inputSize * inputHeight];
+	h_arr2 = new float[inputSize * matrixHeight];
 	h_output = new float[inputHeight * matrixHeight];
 	dh_output = new float[inputHeight * matrixHeight];
 
-	for (int i = 0; i < inputSize*inputHeight; ++i) {
+	for (int i = 0; i < inputSize*inputHeight; ++i)
 		h_arr1[i] = i;
-		h_arr2[i] = 1;
-	}
+	
+	for(int i = 0; i < inputSize * matrixHeight; ++i)
+		h_arr2[i] = 0.001;
 
 	for (int i = 0; i < matrixHeight * inputHeight; ++i)
 		h_output[i] = 0.0f;
 
 
 	checkCudaErrors(cudaMalloc((void **)&(d_arr1), inputSize * inputHeight * sizeof(float)));
-	checkCudaErrors(cudaMalloc((void **)&(d_arr2), inputSize * inputHeight * sizeof(float)));
+	checkCudaErrors(cudaMalloc((void **)&(d_arr2), inputSize * matrixHeight * sizeof(float)));
 	checkCudaErrors(cudaMalloc((void **)&(d_output), matrixHeight * inputHeight * sizeof(float)));
 	checkCudaErrors(cudaMemcpy(d_arr1, h_arr1, inputSize * inputHeight * sizeof(float), cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, inputSize * inputHeight * sizeof(float), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_arr2, h_arr2, inputSize * matrixHeight * sizeof(float), cudaMemcpyHostToDevice));
 
-	uint largestOffset = inputHeight < matrixHeight ? matrixHeight : inputHeight;
 	auto numberOfRows = (unsigned)ceilf(float(inputSize) / BLOCKSIZEX);
-	auto numOfCol = (unsigned)ceilf(float(largestOffset) / BLOCKSIZEY);
+	auto numOfCol = (unsigned)ceilf(float(matrixHeight) / BLOCKSIZEY);
 	auto numOfDataset = (unsigned)ceilf(float(inputHeight) / BLOCKSIZEZ);
 	dim3 gridSize(numberOfRows, numOfCol, numOfDataset);
 	dim3 blockSize(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);
