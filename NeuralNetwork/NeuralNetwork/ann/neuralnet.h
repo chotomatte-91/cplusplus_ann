@@ -33,6 +33,9 @@ public:
     void setWeight(unsigned to_index, const T& weight);
     void setOutput(const T& val);
     void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
+	size_t getNumSynapse() const;
+	T getSynapseWeight(unsigned index) const;
+	unsigned getIndex()const;
 
     void status() const;
     T getWeight(unsigned toNeuronIndex) const;
@@ -53,6 +56,11 @@ public:
   NeuralNet(const std::vector<unsigned>& config);
   Neuron& getNeuron(unsigned layerIndex, unsigned index);
   void train(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
+  void Forward(unsigned current);
+  void SetOutputAtLayer(unsigned index, const std::vector<float>& inputs);
+  void GetOutputAtLayer(unsigned index, std::vector<float>& outputs);
+  Layer& GetLayer(unsigned index);
+
   T predict(const std::vector<T>& input);
   size_t numLayers() const;
   size_t numNeurons(unsigned layerIndex) const;

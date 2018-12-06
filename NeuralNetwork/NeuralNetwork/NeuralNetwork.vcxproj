@@ -88,7 +88,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bmp.cpp" />
-    <ClCompile Include="ann\neuralnet.cpp" />
+    <ClCompile Include="ann\neuralnet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="utils\MathUtils.cpp" />
     <ClCompile Include="utils\MathUtilscpp.cpp" />
     <CudaCompile Include="main.cpp" />
