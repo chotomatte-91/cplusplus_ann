@@ -77,8 +77,12 @@ void NeuralNet<T>::Neuron::calculateOutput(const Layer& previousLayer)
 	T innerproduct = 0.f;
 
 	//inner product of previous layer output and weights
-	for (size_t n = 0; n < previousLayer.size(); ++n)
-		innerproduct += (previousLayer[n].getOutput() * previousLayer[n].m_edges[m_index].weight);
+	for (size_t n = 0; n < previousLayer.size() - 1; ++n)
+	{
+		float tmp = previousLayer[n].getOutput();
+		float tmp2 = previousLayer[n].m_edges[m_index].weight;
+		innerproduct += (tmp * tmp2);
+	}
 
 	//y = f(x), where x is the innerproduct calculated previously
 	m_input = innerproduct;
