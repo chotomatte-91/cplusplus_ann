@@ -4,33 +4,75 @@
 #include <cmath>
 #include <algorithm>
 
-float mysigmoid(float val)
+//activation functions
+template <typename T>
+T mysigmoid(T val)
 {
-	float denom = 1.f + std::exp(-val);
-	return 1.f / denom;
+  assert(val > (T)-709);
+	T denom = static_cast<T>(1 + std::exp(-val));
+	return (T) (1 / denom);
 }
 
-float mysigmoidPrime(float val)
+template <typename T>
+T mysigmoidPrime(T val)
 {
-	float temp = mysigmoid(val);
-	return temp * (1.f - temp);
+	T temp = mysigmoid(val);
+	return temp * (1 - temp);
 }
 
-float mytanH(float val)
+template <typename T>
+T mytanH(T val)
 {
-	return std::tanh(val);
+	return (T) std::tanh((double)val);
 }
 
-float mytanHPrime(float val)
+template <typename T>
+T mytanHPrime(T val)
 {
-	return 1.f - (val * val);
+	//return 1.f - (val * val);
+  T temp = (T) std::tanh( (double) val);
+  return static_cast<T>(1 - (temp * temp));
 }
+
+//error functions
+template <typename T>
+T mean_squared_error(const std::vector<T>& predicted, const std::vector<T>& expected)
+{
+  assert(predicted.size() == expected.size());
+  size_t N = expected.size();
+
+  T error = T();
+  for (size_t i = 0; i < N; ++i)
+  {
+    T d = expected[i] - predicted[i];
+    error += (d * d);
+  }
+  return (error / (T)(2 * N));
+}
+
+template<typename T>
+T mean_squared_error_prime(const std::vector<T>& predicted, const std::vector<T>& expected)
+{
+  assert(predicted.size() == expected.size());
+  size_t N = expected.size();
+
+  T error = T();
+  for (size_t i = 0; i < N; ++i)
+  {
+    error += expected[i] - predicted[i];
+  }
+
+  T temp = (-error / (T)N);
+  return (-error / (T)N);
+}
+
 
 void ann_cpu_test()
 {
 	//two neurons input, two neurons hidden, one neuron output
 	std::vector<unsigned> config{ 2, 2, 1 };
 	NeuralNet<float> nn(config);
+  nn.setErrorFunctions(mean_squared_error, mean_squared_error_prime);
 
 	//hardcoded XOR input and labels
 	/*XOR TABLE
@@ -69,27 +111,29 @@ void ann_cpu_test()
 	//input layer to second neuron in hidden layer
 	nn.getNeuron(0, 0).setWeight(1, i1_h2);
 	nn.getNeuron(0, 1).setWeight(1, i2_h2);
-	nn.getNeuron(0, 2).setWeight(0, h2_bias);
+	nn.getNeuron(0, 2).setWeight(1, h2_bias);
 
 	//hidden to output layer
 	nn.getNeuron(1, 0).setWeight(0, h1_o1);
 	nn.getNeuron(1, 1).setWeight(0, h2_o1);
 	nn.getNeuron(1, 2).setWeight(0, o1_bias);
 
-	//tanh is activation function for input and hidden layer
+	//tanh is activation function for hidden layer
 	nn.getNeuron(1, 0).setActivationFunctions(mytanH, mytanHPrime);
 	nn.getNeuron(1, 1).setActivationFunctions(mytanH, mytanHPrime);
 
 	//sigmoid is activation function for output layer
 	nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
-	//nn.train(inputs, labels, 0.5f, 1);
+	nn.train(inputs, labels, 0.5f, 1);
+  nn.printWeights();
+  
 }
 
 int main(int argc, char **argv)
 {
-	//ann_cpu_test();
-#if 1
+	ann_cpu_test();
+#if 0
 
 	const uint inputHeight = std::atoi(argv[1]);
 	const uint numStream = std::atoi(argv[2]);

@@ -13,32 +13,12 @@ template<typename T>
 T identity(T x) { return x; }
 
 template<typename T>
-T identityDerivative(T x) { return x; }
-
-//error function
-template <typename T>
-T rmse(const std::vector<T>& predicted, const std::vector<T>& expected)
-{
-	assert(predicted.size() == expected.size());
-	size_t N = expected.size();
-
-	T error = T();
-	for (size_t i = 0; i < N; ++i)
-	{
-		T d = expected[i] - predicted[i];
-		error += (d * d);
-	}
-	//return std::sqrtf(error / static_cast<float>(N));
-	return (error / (2 * N));
-}
-
-template<typename T>
 NeuralNet<T>::Neuron::Neuron(unsigned numOutputs, unsigned index) :
 	m_output(0.f),
 	m_input(0.f),
 	m_index(index),
 	m_func(identity),
-	m_derivative(identityDerivative)
+	m_derivative(identity)
 {
 	for (unsigned i = 0; i < numOutputs; ++i)
 	{
@@ -107,10 +87,9 @@ void NeuralNet<T>::Neuron::calculateOutput(const Layer& previousLayer)
 }
 
 template<typename T>
-void NeuralNet<T>::Neuron::computeOutputGradients(const T& expectedValue)
+void NeuralNet<T>::Neuron::computeOutputGradients(const T& errorDelta)
 {
-	T delta = expectedValue - m_output;
-	m_gradient = delta * m_derivative(m_input);
+	m_gradient = m_derivative(m_input) * errorDelta;
 }
 
 template<typename T>
@@ -126,18 +105,23 @@ void NeuralNet<T>::Neuron::computeHiddenGradients(const Layer& nextLayer)
 }
 
 template<typename T>
-void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float alpha)
+void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
 {
 	//update the weights in the previous layer
 	for (size_t i = 0; i < prevLayer.size(); ++i)
 	{
 		Neuron& prevNeuron = prevLayer[i];
-		T new_deltaWeight = alpha * m_gradient * prevNeuron.getOutput();
+		T new_deltaWeight = prevNeuron.getOutput() * m_gradient;
 
-		//prevNeuron.m_edges[m_index].deltaWeight = new_deltaWeight;
+    if(i == prevLayer.size()-1)
+      assert(prevNeuron.getOutput() == (T) 1);
 
-		//weight from previousLayer neuron to this neuron
-		prevNeuron.m_edges[m_index].weight += new_deltaWeight;
+    //gradient descent
+    T alpha = static_cast<T>(a);
+    if(new_deltaWeight < static_cast<T>(0))
+		  prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
+    else
+      prevNeuron.m_edges[m_index].weight -= alpha * new_deltaWeight;
 	}
 }
 
@@ -219,8 +203,6 @@ T NeuralNet<T>::forward(const std::vector<T>& inputs)
 
 	T result = m_layers.back()[0].getOutput();
 
-	//std::cout << result << std::endl;
-
 	return result;
 }
 
@@ -228,12 +210,13 @@ template<typename T>
 T NeuralNet<T>::back(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha)
 {
 	//calculate rmse
-	T err = rmse(predicted, labels);
+	T err = m_ef(predicted, labels);
+  T errorDelta = m_ef_prime(predicted, labels);
 
 	//calculate gradient at output layer
 	Layer& outputLayer = m_layers.back();
 	for (size_t i = 0; i < outputLayer.size() - 1; ++i)
-		outputLayer[i].computeOutputGradients(labels[i]);
+		outputLayer[i].computeOutputGradients(errorDelta);
 
 	//calculate gradients of hidden layers
 	for (size_t i = m_layers.size() - 2; i > 0; --i)
@@ -243,7 +226,6 @@ T NeuralNet<T>::back(const std::vector<T>& predicted, const std::vector<T>& labe
 
 		for (size_t n = 0; n < hiddenLayer.size(); ++n)
 			hiddenLayer[n].computeHiddenGradients(nextLayer);
-
 	}
 
 	//update weights of layers using gradients
@@ -268,6 +250,7 @@ void NeuralNet<T>::train(const Matrix& inputs, const std::vector<T>& labels, flo
 	//every input should have a label
 	assert(numInputs == labels.size());
 
+  std::vector<T> finalResults(labels.size(), T());
 	for (unsigned i = 0; i < numIterations; ++i)
 	{
 		std::vector<T> outputs(labels.size(), T());
@@ -281,7 +264,20 @@ void NeuralNet<T>::train(const Matrix& inputs, const std::vector<T>& labels, flo
 
 		//output error
 		std::cout << "Error in " << i + 1 << " iteration: " << error << std::endl;
+
+    if(i == numIterations-1)
+      finalResults = outputs;
 	}
+
+  std::cout << "--------Results in last iteration--------" << std::endl;
+  std::cout << "[";
+  for (size_t i = 0; i < numInputs; ++i)
+  {
+    std::cout << finalResults[i];
+    if(i != numInputs -1)
+      std::cout << ", ";
+  }
+  std::cout << "]" << std::endl;
 }
 
 template<typename T>
@@ -377,4 +373,11 @@ void NeuralNet<T>::printWeights()
 	std::cout << "[" << h2_bias << ", " << i1h2 << ", " << i2h2 << "]" << std::endl;
 	std::cout << "hidden layer to output layer weights" << std::endl;
 	std::cout << "[" << o1_bias << ", " << h1o1 << ", " << h2o1 << "]" << std::endl;
+}
+
+template<typename T>
+void NeuralNet<T>::setErrorFunctions(ErrorFunc error_function, ErrorFunc error_func_derivative)
+{
+  m_ef = error_function;
+  m_ef_prime = error_func_derivative;
 }
