@@ -5,18 +5,28 @@
 #include <algorithm>
 #include <random>
 
+#include <iostream>
+
+//#define PRINT_FUNC_USED
+
 //activation functions
 template <typename T>
 T mysigmoid(T val)
 {
-  assert(val > (T)-709);
-	T denom = static_cast<T>(1 + std::exp(-val));
-	return (T) (1 / denom);
+#ifdef PRINT_FUNC_USED
+  std::cout << "Executing sigmoid function" << std::endl;
+#endif
+  assert(val > static_cast<T>(-709));
+	T denom = static_cast<T>(1.f + std::exp(-val));
+	return (1 / denom);
 }
 
 template <typename T>
 T mysigmoidPrime(T val)
 {
+#ifdef PRINT_FUNC_USED
+  std::cout << "Executing sigmoid derivative" << std::endl;
+#endif
 	T temp = mysigmoid(val);
 	return temp * (1 - temp);
 }
@@ -24,15 +34,20 @@ T mysigmoidPrime(T val)
 template <typename T>
 T mytanH(T val)
 {
-	return (T) std::tanh((double)val);
+#ifdef PRINT_FUNC_USED
+  std::cout << "Executing tanh function" << std::endl;
+#endif
+	return static_cast<T>(std::tanh((double)val));
 }
 
 template <typename T>
 T mytanHPrime(T val)
 {
-	//return 1.f - (val * val);
-  T temp = (T) std::tanh( (double) val);
-  return static_cast<T>(1 - (temp * temp));
+#ifdef PRINT_FUNC_USED
+  std::cout << "Executing tanh derivative" << std::endl;
+#endif
+  T temp = mytanH(val);
+  return static_cast<T>(1.f - (temp * temp));
 }
 
 //error functions
@@ -63,16 +78,16 @@ T mean_squared_error_prime(const std::vector<T>& predicted, const std::vector<T>
     error += expected[i] - predicted[i];
   }
 
-  T temp = (-error / (T)N);
+  //T temp = (-error / (T)N);
   return (-error / (T)N);
 }
 
-
+#define TYPE float
 void ann_cpu_test()
 {
 	//two neurons input, two neurons hidden, one neuron output
 	std::vector<unsigned> config{ 2, 2, 1 };
-	NeuralNet<float> nn(config);
+	NeuralNet<TYPE> nn(config);
   nn.setErrorFunctions(mean_squared_error, mean_squared_error_prime);
 
 	//hardcoded XOR input and labels
@@ -83,24 +98,24 @@ void ann_cpu_test()
 	1 1 0
 	*/
 
-	std::vector<std::vector<float>> inputs = {
+	std::vector<std::vector<TYPE>> inputs = {
 	{ 0, 0 },
 	{ 0, 1 },
 	{ 1, 0 },
 	{ 1, 1 }
 	};
-	std::vector<float> labels = { 0, 1, 1, 0 };
+	std::vector<TYPE> labels = { 0, 1, 1, 0 };
 
 	//hardcoded initialization of weights and bias for testing
-	float i1_h1 = -0.7706f;
-	float i2_h1 = 0.6257f;
-	float h1_bias = 0.1859f;
-	float i1_h2 = 0.5607f;
-	float i2_h2 = 0.2109f;
-	float h2_bias = -0.7984f;
-	float h1_o1 = 0.5951f;
-	float h2_o1 = 0.3433f;
-	float o1_bias = 0.1328f;
+	float i1_h1 = (TYPE) -0.7706f;
+	float i2_h1 = (TYPE) 0.6257f;
+	float h1_bias = (TYPE) 0.1859f;
+	float i1_h2 = (TYPE) 0.5607f;
+	float i2_h2 = (TYPE) 0.2109f;
+	float h2_bias = (TYPE)-0.7984f;
+	float h1_o1 = (TYPE) 0.5951f;
+	float h2_o1 = (TYPE) 0.3433f;
+	float o1_bias = (TYPE) 0.1328f;
 
 	//set weights
 
@@ -122,20 +137,36 @@ void ann_cpu_test()
 	//tanh is activation function for hidden layer
 	nn.getNeuron(1, 0).setActivationFunctions(mytanH, mytanHPrime);
 	nn.getNeuron(1, 1).setActivationFunctions(mytanH, mytanHPrime);
+  //nn.getNeuron(1, 2).setActivationFunctions(mytanH, mytanHPrime);
 
 	//sigmoid is activation function for output layer
 	nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
 
-	nn.train(inputs, labels, 0.5f, 1);
-  nn.printWeights();
-  
+  /* expected outputs after 10000 iteration alpha = 0.5f
+  std::vector<float> expectedOutputs = { 0.0169, 0.9782, 0.9782, 0.0150 };
+  hidden layer weights:
+  [0.1785, -0.7730, 0.6199], [0.7984, 0.5606, 0.2083]
+  [0.1303, 0.5908, 0.3435]
+  h1_bias = 0.1785
+  h2_bias = -0.7984
+  o1_bias = 0.1303
+  i1_h1 = -0.7730
+  i2_h1 = 0.6199
+  i1_h2 = 0.5606
+  i2_h2 = 0.2083
+  h1_o1 = 0.5908
+  h2_o1 = 0.3435
+  */
+
+	nn.train(inputs, labels, 0.5f, 1) ;
+  //nn.printWeights();
 }
 
 
 int main(int argc, char **argv)
 {
-	//ann_cpu_test();
-#if 1
+	ann_cpu_test();
+#if 0
 	if (argc < 6) {
 		std::cout << "Usage: [filename] [stream] [layers] [maxheight]\n";
 		return -1;
@@ -384,14 +415,14 @@ int main(int argc, char **argv)
 
 		sdkStopTimer(&hTimer);
 		GPUTime += 1.0e-3 * (double)sdkGetTimerValue(&hTimer);
-	}
+	}::cout << "h_finalOutputCUDA[" << i << "] = " << h_finalOutputCUDA[i] << std::endl << std::endl;
+	//}
 	std::cout << "GPU time taken on average: " << (GPUTime / (float)numIter) << std::endl << std::endl;
 
 	//std::cout << "h_finalOutputCUDA[0] = " << h_finalOutputCUDA[0] << std::endl << std::endl;
 	//for (int i = 0; i < maxLayerSize * startVecLength; ++i)
 	//{
-	//	std::cout << "h_finalOutputCUDA[" << i << "] = " << h_finalOutputCUDA[i] << std::endl << std::endl;
-	//}
+	//	std
 	//for (int i = 0; i < weightSize; ++i)
 	//{
 	//  std::cout << "h_weightCUDA[" << i << "] = " << h_weightCUDA[i] << std::endl << std::endl;

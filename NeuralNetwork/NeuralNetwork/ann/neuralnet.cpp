@@ -10,12 +10,17 @@ static RNG rng;
 
 //default activation func does nothing
 template<typename T>
-T identity(T x) { return x; }
+T identity(T x) 
+{
+  //std::cout << "Executing identity function" << std::endl;
+  return x; 
+}
 
 template<typename T>
 NeuralNet<T>::Neuron::Neuron(unsigned numOutputs, unsigned index) :
 	m_output(0.f),
 	m_input(0.f),
+  m_gradient(1.f),
 	m_index(index),
 	m_func(identity),
 	m_derivative(identity)
@@ -35,9 +40,9 @@ void NeuralNet<T>::Neuron::setOutput(const T& val)
 }
 
 template <typename T>
-void NeuralNet<T>::Neuron::setWeight(unsigned to_index, const T& weight)
+void NeuralNet<T>::Neuron::setWeight(unsigned nextLayerNeuronIndex, const T& weight)
 {
-	m_edges[to_index].weight = weight;
+	m_edges[nextLayerNeuronIndex].weight = weight;
 }
 
 template <typename T>
@@ -45,6 +50,18 @@ void NeuralNet<T>::Neuron::setActivationFunctions(ActivationFunc f, ActivationFu
 {
 	m_derivative = d;
 	m_func = f;
+}
+
+template<typename T>
+T NeuralNet<T>::Neuron::useFunc(const T & val) const
+{
+  return m_func(val);
+}
+
+template<typename T>
+T NeuralNet<T>::Neuron::useDerivative(const T & val) const
+{
+  return m_derivative(val);
 }
 
 template<typename T>
@@ -71,63 +88,6 @@ T NeuralNet<T>::Neuron::getOutput() const
 	return m_output;
 }
 
-template<typename T>
-void NeuralNet<T>::Neuron::calculateOutput(const Layer& previousLayer)
-{
-	T innerproduct = 0.f;
-
-	//inner product of previous layer output and weights
-	for (size_t n = 0; n < previousLayer.size() - 1; ++n)
-	{
-		float tmp = previousLayer[n].getOutput();
-		float tmp2 = previousLayer[n].m_edges[m_index].weight;
-		innerproduct += (tmp * tmp2);
-	}
-
-	//y = f(x), where x is the innerproduct calculated previously
-	m_input = innerproduct;
-	assert(m_func != nullptr);
-	m_output = m_func(m_input);
-}
-
-template<typename T>
-void NeuralNet<T>::Neuron::computeOutputGradients(const T& errorDelta)
-{
-	m_gradient = m_derivative(m_input) * errorDelta;
-}
-
-template<typename T>
-void NeuralNet<T>::Neuron::computeHiddenGradients(const Layer& nextLayer)
-{
-	T dW = (T) 0.f;
-
-	//sum contribution of errors at nodes of next layer
-	for (size_t i = 0; i < nextLayer.size() - 1; ++i)
-		dW += m_edges[i].weight * nextLayer[i].m_gradient;
-
-	m_gradient = dW * m_derivative(m_input);
-}
-
-template<typename T>
-void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
-{
-	//update the weights in the previous layer
-	for (size_t i = 0; i < prevLayer.size(); ++i)
-	{
-		Neuron& prevNeuron = prevLayer[i];
-		T new_deltaWeight = prevNeuron.getOutput() * m_gradient;
-
-    if(i == prevLayer.size()-1)
-      assert(prevNeuron.getOutput() == (T) 1);
-
-    //gradient descent
-    T alpha = static_cast<T>(a);
-    if(new_deltaWeight < static_cast<T>(0))
-		  prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
-    else
-      prevNeuron.m_edges[m_index].weight -= alpha * new_deltaWeight;
-	}
-}
 
 template<typename T>
 void NeuralNet<T>::Neuron::status() const
@@ -182,6 +142,26 @@ NeuralNet<T>::NeuralNet(const std::vector<unsigned>& config)
 }
 
 template<typename T>
+void NeuralNet<T>::Neuron::calculateOutput(const Layer& previousLayer)
+{
+  T innerproduct = (T) 0.f;
+
+  //inner product of previous layer output and weights
+  for (size_t n = 0; n < previousLayer.size(); ++n)
+  {
+    float tmp = previousLayer[n].getOutput();
+    float tmp2 = previousLayer[n].m_edges[m_index].weight;
+    innerproduct += (tmp * tmp2);
+  }
+
+  //y = f(x), where x is the innerproduct calculated previously
+  m_input = innerproduct;
+  assert(m_func != nullptr);
+  m_output = m_func(m_input);
+}
+
+
+template<typename T>
 T NeuralNet<T>::forward(const std::vector<T>& inputs)
 {
 	assert(inputs.size() == m_layers[0].size() - 1);
@@ -194,20 +174,62 @@ T NeuralNet<T>::forward(const std::vector<T>& inputs)
 	//feed forward, starting from first hidden layer
 	for (size_t l = 1; l < m_layers.size(); ++l)
 	{
-		Layer& currentLayer = m_layers[l];
+		Layer& currentLayer = m_layers[l]; 
 		Layer& previousLayer = m_layers[l - 1];
 
-		//update weights for each neuron, ignoring the bias neuron 
+		//update outputs for each neuron note that bias neuron always output 1.0 so it is ignored
 		for (size_t n = 0; n < currentLayer.size() - 1; ++n)
 			currentLayer[n].calculateOutput(previousLayer);
 	}
 
 	//get output (assume only one neuron in output layer --> extra bias neuron ignored)
 	assert(m_layers.back().size() == 2);
-
 	T result = m_layers.back()[0].getOutput();
 
 	return result;
+}
+
+template<typename T>
+void NeuralNet<T>::Neuron::computeOutputGradients(const T& errorDelta)
+{
+  m_gradient = m_derivative(m_input) * errorDelta;
+}
+
+template<typename T>
+void NeuralNet<T>::Neuron::computeHiddenGradients(const Layer& nextLayer)
+{
+  T dW = (T) 0.f;
+
+  //sum contribution of errors at nodes of next layer
+  for (size_t i = 0; i < nextLayer.size() - 1; ++i)
+  {
+    dW += m_edges[i].weight * nextLayer[i].m_gradient;
+  }
+
+  m_gradient = m_derivative(m_input) * dW;
+}
+
+template<typename T>
+void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
+{
+  //update the weights in the previous layer
+  for (size_t i = 0; i < prevLayer.size(); ++i)
+  {
+    Neuron& prevNeuron = prevLayer[i];
+    T new_deltaWeight = prevNeuron.getOutput() * m_gradient;
+
+    //gradient descent
+    T alpha = static_cast<T>(a);
+
+    /*
+    if(new_deltaWeight < static_cast<T>(0))
+       prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
+    else
+       prevNeuron.m_edges[m_index].weight -= alpha * new_deltaWeight;
+    */
+
+    prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
+  }
 }
 
 template<typename T>
@@ -219,30 +241,32 @@ T NeuralNet<T>::back(const std::vector<T>& predicted, const std::vector<T>& labe
 
 	//calculate gradient at output layer
 	Layer& outputLayer = m_layers.back();
-	for (size_t i = 0; i < outputLayer.size() - 1; ++i)
-		outputLayer[i].computeOutputGradients(errorDelta);
-
-	//calculate gradients of hidden layers
-	for (size_t i = m_layers.size() - 2; i > 0; --i)
+  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
+  {
+    outputLayer[i].computeOutputGradients(errorDelta);
+  }
+    
+	//calculate gradients of hidden layers only
+ 	for (size_t i = m_layers.size() - 2; i > 0; --i)
 	{
-		Layer& hiddenLayer = m_layers[i];
-		Layer& nextLayer = m_layers[i + 1];
+ 		Layer& currLayer = m_layers[i];
+		Layer& nextLayer = m_layers[i+1];
 
-		for (size_t n = 0; n < hiddenLayer.size(); ++n)
-			hiddenLayer[n].computeHiddenGradients(nextLayer);
+		for (size_t n = 0; n < currLayer.size(); ++n)
+      currLayer[n].computeHiddenGradients(nextLayer);
 	}
 
-	//update weights of layers using gradients
-	for (size_t i = m_layers.size() - 1; i > 0; --i)
+	//update weights starting from hidden layer
+	for (size_t i = m_layers.size() - 1 ; i > 0; --i)
 	{
 		Layer& currentLayer = m_layers[i];
-		Layer& prevLayer = m_layers[i - 1];
+		Layer& prevLayer = m_layers[i-1];
 
 		for (size_t n = 0; n < currentLayer.size() - 1; ++n)
 			currentLayer[n].updateWeights(prevLayer, alpha);
 	}
 
-	return err;
+ 	return err;
 }
 
 template<typename T>

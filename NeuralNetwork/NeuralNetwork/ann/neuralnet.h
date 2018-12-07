@@ -30,18 +30,19 @@ public:
     void computeOutputGradients(const T& errorDelta);
     void computeHiddenGradients(const Layer& nextLayer);
     void updateWeights(Layer& previousLayer, float a);
-    void setWeight(unsigned to_index, const T& weight);
+    void setWeight(unsigned nextLayerNeuronIndex, const T& weight);
     void setOutput(const T& val);
     void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
-
-	size_t getNumSynapse() const;
-	T getSynapseWeight(unsigned index) const;
-	unsigned getIndex()const;
-
     void status() const;
+
+	  size_t getNumSynapse() const;
+    unsigned getIndex()const;
+	  T getSynapseWeight(unsigned index) const;
     T getWeight(unsigned toNeuronIndex) const;
-    std::vector<T> getWeights() const;
+    T useFunc(const T& val) const;
+    T useDerivative(const T& val) const;
     T getOutput() const;
+    std::vector<T> getWeights() const;
 
   private:
     ActivationFunc m_func;
