@@ -27,9 +27,10 @@ public:
   public:
     Neuron(unsigned numOutputs, unsigned index);
     void calculateOutput(const Layer& previousLayer);
-    void computeOutputGradients(const T& errorDelta);
     void computeHiddenGradients(const Layer& nextLayer);
+    void computeOutputGradients(const T& expectedValue);
     void updateWeights(Layer& previousLayer, float a);
+    void setGradient(const T& val);
     void setWeight(unsigned nextLayerNeuronIndex, const T& weight);
     void setOutput(const T& val);
     void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
@@ -56,8 +57,10 @@ public:
 
   NeuralNet(const std::vector<unsigned>& config);
   Neuron& getNeuron(unsigned layerIndex, unsigned index);
+  void train_batched(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
   void train(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
-  void Forward(unsigned current);
+  
+    void Forward(unsigned current);
   void SetOutputAtLayer(unsigned index, const std::vector<float>& inputs);
   void GetOutputAtLayer(unsigned index, std::vector<float>& outputs);
   Layer& GetLayer(unsigned index);
@@ -67,14 +70,16 @@ public:
   size_t numNeurons(unsigned layerIndex) const;
   void status();
   void printWeights();
-  void setErrorFunctions(ErrorFunc error_function, ErrorFunc error_func_derivative);
+  void setErrorFunction(ErrorFunc error_function);
 
 private:
+  T computeOutputDeltaBatched(const std::vector<T>& predicted, const std::vector<T>& expected) const;
   T forward(const std::vector<T>& inputvalues);
-  T back(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha);
+  void back_batched(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha);
+  void back(const T& predictedVal, const T& expectedVal, float alpha);
+  
 
   ErrorFunc m_ef;
-  ErrorFunc m_ef_prime;
   std::vector<Layer> m_layers;
 };
 

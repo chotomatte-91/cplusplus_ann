@@ -53,6 +53,12 @@ void NeuralNet<T>::Neuron::setActivationFunctions(ActivationFunc f, ActivationFu
 }
 
 template<typename T>
+void NeuralNet<T>::Neuron::setGradient(const T & val)
+{
+  m_gradient = val;
+}
+
+template<typename T>
 T NeuralNet<T>::Neuron::useFunc(const T & val) const
 {
   return m_func(val);
@@ -113,6 +119,7 @@ T NeuralNet<T>::Neuron::getWeight(unsigned toNeuronIndex) const
 	return m_edges[toNeuronIndex].weight;
 }
 
+
 template<typename T>
 typename NeuralNet<T>::Neuron& NeuralNet<T>::getNeuron(unsigned layerIndex, unsigned index)
 {
@@ -160,39 +167,98 @@ void NeuralNet<T>::Neuron::calculateOutput(const Layer& previousLayer)
   m_output = m_func(m_input);
 }
 
-
 template<typename T>
 T NeuralNet<T>::forward(const std::vector<T>& inputs)
 {
-	assert(inputs.size() == m_layers[0].size() - 1);
+  assert(inputs.size() == m_layers[0].size() - 1);
 
-	//set inputs as output values of initial layer
-	Layer& inputLayer = m_layers[0];
-	for (size_t i = 0; i < inputs.size(); ++i)
-		inputLayer[i].setOutput(inputs[i]);
+  //set inputs as output values of initial layer
+  Layer& inputLayer = m_layers[0];
+  for (size_t i = 0; i < inputs.size(); ++i)
+    inputLayer[i].setOutput(inputs[i]);
 
-	//feed forward, starting from first hidden layer
-	for (size_t l = 1; l < m_layers.size(); ++l)
-	{
-		Layer& currentLayer = m_layers[l]; 
-		Layer& previousLayer = m_layers[l - 1];
+  //feed forward, starting from first hidden layer
+  for (size_t l = 1; l < m_layers.size(); ++l)
+  {
+    Layer& currentLayer = m_layers[l];
+    Layer& previousLayer = m_layers[l - 1];
 
-		//update outputs for each neuron note that bias neuron always output 1.0 so it is ignored
-		for (size_t n = 0; n < currentLayer.size() - 1; ++n)
-			currentLayer[n].calculateOutput(previousLayer);
-	}
+    //update outputs for each neuron note that bias neuron always output 1.0 so it is ignored
+    for (size_t n = 0; n < currentLayer.size() - 1; ++n)
+      currentLayer[n].calculateOutput(previousLayer);
+  }
 
-	//get output (assume only one neuron in output layer --> extra bias neuron ignored)
-	assert(m_layers.back().size() == 2);
-	T result = m_layers.back()[0].getOutput();
+  //get output (assume only one neuron in output layer --> extra bias neuron ignored)
+  assert(m_layers.back().size() == 2);
+  T result = m_layers.back()[0].getOutput();
 
-	return result;
+  return result;
 }
 
 template<typename T>
-void NeuralNet<T>::Neuron::computeOutputGradients(const T& errorDelta)
+void NeuralNet<T>::back(const T & predictedVal, const T & expectedVal, float alpha)
 {
-  m_gradient = m_derivative(m_input) * errorDelta;
+  //calculate gradient at output layer
+  Layer& outputLayer = m_layers.back();
+  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
+  {
+    outputLayer[i].computeOutputGradients(expectedVal);
+  }
+
+  //calculate gradients of hidden layers only
+  for (size_t i = m_layers.size() - 2; i > 0; --i)
+  {
+    Layer& currLayer = m_layers[i];
+    Layer& nextLayer = m_layers[i + 1];
+
+    for (size_t n = 0; n < currLayer.size(); ++n)
+      currLayer[n].computeHiddenGradients(nextLayer);
+  }
+
+  //update weights starting from hidden layer
+  for (size_t i = m_layers.size() - 1; i > 0; --i)
+  {
+    Layer& currentLayer = m_layers[i];
+    Layer& prevLayer = m_layers[i - 1];
+
+    for (size_t n = 0; n < currentLayer.size() - 1; ++n)
+      currentLayer[n].updateWeights(prevLayer, alpha);
+  }
+}
+
+
+template<typename T>
+void NeuralNet<T>::back_batched(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha)
+{
+  //calculate rmse
+  T errorDelta = computeOutputDelta(predicted, labels);
+
+  //calculate gradient at output layer
+  Layer& outputLayer = m_layers.back();
+  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
+  {
+    outputLayer[i].setGradient(errorDelta);
+  }
+
+  //calculate gradients of hidden layers only
+  for (size_t i = m_layers.size() - 2; i > 0; --i)
+  {
+    Layer& currLayer = m_layers[i];
+    Layer& nextLayer = m_layers[i + 1];
+
+    for (size_t n = 0; n < currLayer.size(); ++n)
+      currLayer[n].computeHiddenGradients(nextLayer);
+  }
+
+  //update weights starting from hidden layer
+  for (size_t i = m_layers.size() - 1; i > 0; --i)
+  {
+    Layer& currentLayer = m_layers[i];
+    Layer& prevLayer = m_layers[i - 1];
+
+    for (size_t n = 0; n < currentLayer.size() - 1; ++n)
+      currentLayer[n].updateWeights(prevLayer, -alpha / 4.f);
+  }
 }
 
 template<typename T>
@@ -210,6 +276,13 @@ void NeuralNet<T>::Neuron::computeHiddenGradients(const Layer& nextLayer)
 }
 
 template<typename T>
+void NeuralNet<T>::Neuron::computeOutputGradients(const T & expectedValue)
+{
+  T delta = expectedValue - m_output;
+  m_gradient = m_derivative(m_input) * delta;
+}
+
+template<typename T>
 void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
 {
   //update the weights in the previous layer
@@ -221,52 +294,22 @@ void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
     //gradient descent
     T alpha = static_cast<T>(a);
 
-    /*
-    if(new_deltaWeight < static_cast<T>(0))
-       prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
-    else
-       prevNeuron.m_edges[m_index].weight -= alpha * new_deltaWeight;
-    */
-
     prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
   }
 }
 
 template<typename T>
-T NeuralNet<T>::back(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha)
+T NeuralNet<T>::NeuralNet::computeOutputDeltaBatched(const std::vector<T>& predicted, const std::vector<T>& expected) const
 {
-	//calculate rmse
-	T err = m_ef(predicted, labels);
-  T errorDelta = m_ef_prime(predicted, labels);
-
-	//calculate gradient at output layer
-	Layer& outputLayer = m_layers.back();
-  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
+  size_t N = expected.size();
+  T sum = static_cast<T>(0);
+  for (size_t i = 0; i < N; ++i)
   {
-    outputLayer[i].computeOutputGradients(errorDelta);
+    //hardcoded derivative of sigmoid
+    sum += predicted[i] * (static_cast<T>(1) - predicted[i]) * (expected[i] - predicted[i]);
   }
-    
-	//calculate gradients of hidden layers only
- 	for (size_t i = m_layers.size() - 2; i > 0; --i)
-	{
- 		Layer& currLayer = m_layers[i];
-		Layer& nextLayer = m_layers[i+1];
 
-		for (size_t n = 0; n < currLayer.size(); ++n)
-      currLayer[n].computeHiddenGradients(nextLayer);
-	}
-
-	//update weights starting from hidden layer
-	for (size_t i = m_layers.size() - 1 ; i > 0; --i)
-	{
-		Layer& currentLayer = m_layers[i];
-		Layer& prevLayer = m_layers[i-1];
-
-		for (size_t n = 0; n < currentLayer.size() - 1; ++n)
-			currentLayer[n].updateWeights(prevLayer, alpha);
-	}
-
- 	return err;
+  return sum;
 }
 
 template<typename T>
@@ -283,12 +326,15 @@ void NeuralNet<T>::train(const Matrix& inputs, const std::vector<T>& labels, flo
 	{
 		std::vector<T> outputs(labels.size(), T());
 
-		//feed forward
-		for (size_t j = 0; j < numInputs; ++j)
-			outputs[j] = forward(inputs[j]);
+		//feed forward and back propagate
+    for (size_t j = 0; j < numInputs; ++j)
+    {
+      outputs[j] = forward(inputs[j]);
+      back(outputs[j], labels[j], learningRate);
+    }
 
-		//back propagate
-		T error = back(outputs, labels, learningRate);
+    //error in this iteration
+    T error = m_ef(outputs, labels);
 
 		//output error
 		std::cout << "Error in " << i + 1 << " iteration: " << error << std::endl;
@@ -341,7 +387,6 @@ NeuralNet<T>::Layer & NeuralNet<T>::GetLayer(unsigned index)
 }
 
 
-
 template<typename T>
 T NeuralNet<T>::predict(const std::vector<T>& input)
 {
@@ -358,6 +403,12 @@ template<typename T>
 size_t NeuralNet<T>::numNeurons(unsigned index) const
 {
 	return m_layers[index].size();
+}
+
+template<typename T>
+void NeuralNet<T>::setErrorFunction(ErrorFunc error_function)
+{
+  m_ef = error_function;
 }
 
 template<typename T>
@@ -403,9 +454,3 @@ void NeuralNet<T>::printWeights()
 	std::cout << "[" << o1_bias << ", " << h1o1 << ", " << h2o1 << "]" << std::endl;
 }
 
-template<typename T>
-void NeuralNet<T>::setErrorFunctions(ErrorFunc error_function, ErrorFunc error_func_derivative)
-{
-  m_ef = error_function;
-  m_ef_prime = error_func_derivative;
-}
