@@ -142,7 +142,7 @@ void ann_cpu_test()
   h2_o1 = 0.3435
   */
 
-	nn.train(inputs, labels, 0.5f, 1) ;
+	nn.train(inputs, labels, 0.5f, 3000) ;
   nn.printWeights();
 }
 

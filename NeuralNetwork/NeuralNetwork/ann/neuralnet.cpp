@@ -59,27 +59,9 @@ void NeuralNet<T>::Neuron::setGradient(const T & val)
 }
 
 template<typename T>
-T NeuralNet<T>::Neuron::useFunc(const T & val) const
-{
-  return m_func(val);
-}
-
-template<typename T>
-T NeuralNet<T>::Neuron::useDerivative(const T & val) const
-{
-  return m_derivative(val);
-}
-
-template<typename T>
 size_t NeuralNet<T>::Neuron::getNumSynapse() const
 {
 	return m_edges.size();
-}
-
-template<typename T>
-T NeuralNet<T>::Neuron::getSynapseWeight(unsigned index) const
-{
-	return m_edges[index].weight;
 }
 
 template<typename T>
@@ -96,16 +78,7 @@ T NeuralNet<T>::Neuron::getOutput() const
 
 
 template<typename T>
-void NeuralNet<T>::Neuron::status() const
-{
-	std::string toPrint = "Neuron " + std::to_string(m_index);
-	std::cout << "------------------------------" << toPrint << "-----------------------------" << std::endl;
-	std::cout << "Output: " << m_output << std::endl;
-	std::cout << "Gradient: " << m_gradient << std::endl;
-}
-
-template<typename T>
-std::vector<T> NeuralNet<T>::Neuron::getWeights() const
+std::vector<T> NeuralNet<T>::Neuron::getAllWeights() const
 {
 	std::vector<T> weights(m_edges.size(), T());
 	for (size_t i = 0; i < m_edges.size(); ++i)
@@ -299,7 +272,7 @@ void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
 }
 
 template<typename T>
-T NeuralNet<T>::NeuralNet::computeOutputDeltaBatched(const std::vector<T>& predicted, const std::vector<T>& expected) const
+T NeuralNet<T>::computeOutputDeltaBatched(const std::vector<T>& predicted, const std::vector<T>& expected) const
 {
   size_t N = expected.size();
   T sum = static_cast<T>(0);
@@ -355,15 +328,19 @@ void NeuralNet<T>::train(const Matrix& inputs, const std::vector<T>& labels, flo
 }
 
 template<typename T>
-void NeuralNet<T>::Forward(unsigned current)
+std::vector<T> NeuralNet<T>::Forward_at_layer(unsigned layerIndex)
 {
-	//feed forward just once
+	//feed forward at the specified layer and return results
 	Layer& currentLayer = m_layers[current];
 	Layer& previousLayer = m_layers[current - 1];
 
-	//compute output for each neuron, ignoring the bias neuron 
-	for (size_t n = 0; n < currentLayer.size() - 1; ++n)
-		currentLayer[n].calculateOutput(previousLayer);
+  std::vector<T> results(currentLayer.size(), T());
+  for (size_t n = 0; n < currentLayer.size() - 1; ++n)
+  {
+    currentLayer[n].calculateOutput(previousLayer);
+    results[n] = currentLayer[n].getOutput();
+  }
+	return results;
 }
 
 template<typename T>
@@ -386,10 +363,10 @@ NeuralNet<T>::Layer & NeuralNet<T>::GetLayer(unsigned index)
 	return m_layers[index];
 }
 
-
 template<typename T>
 T NeuralNet<T>::predict(const std::vector<T>& input)
 {
+  assert(input.size() == m_layers[0].size()-1);
 	return forward(input);
 }
 
@@ -409,27 +386,6 @@ template<typename T>
 void NeuralNet<T>::setErrorFunction(ErrorFunc error_function)
 {
   m_ef = error_function;
-}
-
-template<typename T>
-void NeuralNet<T>::status()
-{
-	size_t N = numLayers();
-
-	for (size_t i = 0; i < N; ++i)
-	{
-		if (i == 0)
-			std::cout << "INPUT LAYER" << std::endl;
-		else if (i == N - 1)
-			std::cout << "OUTPUT LAYER" << std::endl;
-		else
-			std::cout << "HIDDEN LAYER" << std::endl;
-
-		for (size_t j = 0; j < numNeurons(i); ++j)
-			getNeuron(i, j).status();
-
-		std::cout << "-------------------------------------------------------------------" << std::endl;
-	}
 }
 
 template<typename T>

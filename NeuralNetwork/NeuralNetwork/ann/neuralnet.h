@@ -34,16 +34,13 @@ public:
     void setWeight(unsigned nextLayerNeuronIndex, const T& weight);
     void setOutput(const T& val);
     void setActivationFunctions(ActivationFunc func, ActivationFunc derivative);
-    void status() const;
 
-	  size_t getNumSynapse() const;
+	  
     unsigned getIndex()const;
-	  T getSynapseWeight(unsigned index) const;
     T getWeight(unsigned toNeuronIndex) const;
-    T useFunc(const T& val) const;
-    T useDerivative(const T& val) const;
     T getOutput() const;
-    std::vector<T> getWeights() const;
+    size_t getNumSynapse() const;
+    std::vector<T> getAllWeights() const;
 
   private:
     ActivationFunc m_func;
@@ -56,19 +53,24 @@ public:
   };
 
   NeuralNet(const std::vector<unsigned>& config);
-  Neuron& getNeuron(unsigned layerIndex, unsigned index);
-  void train_batched(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
-  void train(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
+
+  //predicts output after training
+  T predict(const std::vector<T>& input);
   
-    void Forward(unsigned current);
+  //batch forward and back propagate using batched gradient descent
+  void train_batched(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
+
+  //one forward and one back for every sample
+  void train(const Matrix& inputs, const std::vector<T>& labels, float learningRate, unsigned numIter);
+
+  std::vector<T> Forward_at_layer(unsigned layerIndex);
   void SetOutputAtLayer(unsigned index, const std::vector<float>& inputs);
   void GetOutputAtLayer(unsigned index, std::vector<float>& outputs);
+  
+  Neuron& getNeuron(unsigned layerIndex, unsigned index);
   Layer& GetLayer(unsigned index);
-
-  T predict(const std::vector<T>& input);
   size_t numLayers() const;
   size_t numNeurons(unsigned layerIndex) const;
-  void status();
   void printWeights();
   void setErrorFunction(ErrorFunc error_function);
 
