@@ -66,29 +66,13 @@ T mean_squared_error(const std::vector<T>& predicted, const std::vector<T>& expe
   return (error / (T)(2 * N));
 }
 
-template<typename T>
-T mean_squared_error_prime(const std::vector<T>& predicted, const std::vector<T>& expected)
-{
-  assert(predicted.size() == expected.size());
-  size_t N = expected.size();
-
-  T error = T();
-  for (size_t i = 0; i < N; ++i)
-  {
-    error += expected[i] - predicted[i];
-  }
-
-  //T temp = (-error / (T)N);
-  return (-error / (T)N);
-}
-
 #define TYPE float
 void ann_cpu_test()
 {
 	//two neurons input, two neurons hidden, one neuron output
 	std::vector<unsigned> config{ 2, 2, 1 };
 	NeuralNet<TYPE> nn(config);
-  nn.setErrorFunctions(mean_squared_error, mean_squared_error_prime);
+  nn.setErrorFunction(mean_squared_error);
 
 	//hardcoded XOR input and labels
 	/*XOR TABLE
@@ -137,7 +121,7 @@ void ann_cpu_test()
 	//tanh is activation function for hidden layer
 	nn.getNeuron(1, 0).setActivationFunctions(mytanH, mytanHPrime);
 	nn.getNeuron(1, 1).setActivationFunctions(mytanH, mytanHPrime);
-  //nn.getNeuron(1, 2).setActivationFunctions(mytanH, mytanHPrime);
+  nn.getNeuron(1, 2).setActivationFunctions(mytanH, mytanHPrime);
 
 	//sigmoid is activation function for output layer
 	nn.getNeuron(2, 0).setActivationFunctions(mysigmoid, mysigmoidPrime);
@@ -159,7 +143,7 @@ void ann_cpu_test()
   */
 
 	nn.train(inputs, labels, 0.5f, 1) ;
-  //nn.printWeights();
+  nn.printWeights();
 }
 
 
