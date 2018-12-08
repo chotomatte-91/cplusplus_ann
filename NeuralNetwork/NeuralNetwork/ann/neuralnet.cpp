@@ -59,7 +59,7 @@ void NeuralNet<T>::Neuron::setGradient(const T & val)
 }
 
 template<typename T>
-size_t NeuralNet<T>::Neuron::getNumSynapse() const
+size_t NeuralNet<T>::Neuron::getNumEdges() const
 {
 	return m_edges.size();
 }
@@ -201,40 +201,6 @@ void NeuralNet<T>::back(const T & predictedVal, const T & expectedVal, float alp
 
 
 template<typename T>
-void NeuralNet<T>::back_batched(const std::vector<T>& predicted, const std::vector<T>& labels, float alpha)
-{
-  //calculate rmse
-  T errorDelta = computeOutputDelta(predicted, labels);
-
-  //calculate gradient at output layer
-  Layer& outputLayer = m_layers.back();
-  for (size_t i = 0; i < outputLayer.size() - 1; ++i)
-  {
-    outputLayer[i].setGradient(errorDelta);
-  }
-
-  //calculate gradients of hidden layers only
-  for (size_t i = m_layers.size() - 2; i > 0; --i)
-  {
-    Layer& currLayer = m_layers[i];
-    Layer& nextLayer = m_layers[i + 1];
-
-    for (size_t n = 0; n < currLayer.size(); ++n)
-      currLayer[n].computeHiddenGradients(nextLayer);
-  }
-
-  //update weights starting from hidden layer
-  for (size_t i = m_layers.size() - 1; i > 0; --i)
-  {
-    Layer& currentLayer = m_layers[i];
-    Layer& prevLayer = m_layers[i - 1];
-
-    for (size_t n = 0; n < currentLayer.size() - 1; ++n)
-      currentLayer[n].updateWeights(prevLayer, -alpha / 4.f);
-  }
-}
-
-template<typename T>
 void NeuralNet<T>::Neuron::computeHiddenGradients(const Layer& nextLayer)
 {
   T dW = (T) 0.f;
@@ -269,20 +235,6 @@ void NeuralNet<T>::Neuron::updateWeights(Layer& prevLayer, float a)
 
     prevNeuron.m_edges[m_index].weight += alpha * new_deltaWeight;
   }
-}
-
-template<typename T>
-T NeuralNet<T>::computeOutputDeltaBatched(const std::vector<T>& predicted, const std::vector<T>& expected) const
-{
-  size_t N = expected.size();
-  T sum = static_cast<T>(0);
-  for (size_t i = 0; i < N; ++i)
-  {
-    //hardcoded derivative of sigmoid
-    sum += predicted[i] * (static_cast<T>(1) - predicted[i]) * (expected[i] - predicted[i]);
-  }
-
-  return sum;
 }
 
 template<typename T>
@@ -325,36 +277,6 @@ void NeuralNet<T>::train(const Matrix& inputs, const std::vector<T>& labels, flo
       std::cout << ", ";
   }
   std::cout << "]" << std::endl;
-}
-
-template<typename T>
-std::vector<T> NeuralNet<T>::Forward_at_layer(unsigned layerIndex)
-{
-	//feed forward at the specified layer and return results
-	Layer& currentLayer = m_layers[current];
-	Layer& previousLayer = m_layers[current - 1];
-
-  std::vector<T> results(currentLayer.size(), T());
-  for (size_t n = 0; n < currentLayer.size() - 1; ++n)
-  {
-    currentLayer[n].calculateOutput(previousLayer);
-    results[n] = currentLayer[n].getOutput();
-  }
-	return results;
-}
-
-template<typename T>
-void NeuralNet<T>::SetOutputAtLayer(unsigned index, const std::vector<float>& inputs)
-{
-	for (unsigned i = 0; i < m_layers[i].size(); ++i)
-		m_layers[index][i].setOutput(inputs[i]);
-}
-
-template<typename T>
-void NeuralNet<T>::GetOutputAtLayer(unsigned index, std::vector<float>& outputs)
-{
-	for(unsigned i = 0; i < m_layers[index].size() - 1; ++i)
-		outputs.push_back(m_layers[index][i].getOutput());
 }
 
 template<typename T>
